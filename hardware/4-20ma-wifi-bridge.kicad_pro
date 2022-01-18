@@ -354,7 +354,9 @@
   },
   "libraries": {
     "pinned_footprint_libs": [],
-    "pinned_symbol_libs": []
+    "pinned_symbol_libs": [
+      "ESP32-DEVKITC-32D"
+    ]
   },
   "meta": {
     "filename": "4-20ma-wifi-bridge.kicad_pro",
