@@ -164,22 +164,51 @@
 
 
 
-            <div id=service class="tab-pane fade">
+            <div id=service class="tab-pane fade">                
                 <div class=form-group>
-                    <label>Service Access</label>
-                    <select class="mdb-select form-control sevice-access" id="service_acc">
-                        <option value="MQTT" class=mqtt-box>MQTT</option>
-                        <option value="HTTP" class=http-box>HTTP</option>
-                        <option value="TCP" class=TCP-box>TCP</option>
+                    <div class=row>
+                        <div class=col-md-8> <label>Host IP/ Address</label>
+                            <input type=text id="hipadd" class=form-control placeholder="Mqtt Broker Address">
+                        </div>
+                        <div class=col-md-4><label>Port</label>
+                            <input type=text id="port" class=form-control placeholder="1883" value=""> </div>
+                    </div>
+                </div>
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Client ID</label>
+                    <input type=text id="c_id" class=form-control placeholder="Client ID">
+                </div>
+
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Qos</label>
+                    <select class="mdb-select form-control" id="QOS">
+                        <option value=1>0</option>
+                        <option value=2>1</option>
+                        <option value=3>2</option>
+
                     </select>
                 </div>
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Username</label>
+                    <input type=text id="U_name" class=form-control placeholder=Username> </div>
+
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Password</label>
+                    <input type="text" id="s_pass" class=form-control placeholder="Password OR Token"> </div>
+                
+                
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Publish Topic temperature</label>
+                    <input type=text id="pub_topic_temp" class=form-control placeholder="Status Publish Topic"> </div>
+
+                
                 <div class=form-group>
                     <label>Upload Interval</label>
                     <div class=row>
                         <div class=col-md-4>
-                            <input type=text id="uinterval" class=form-control placeholder="number"> </div>
+                            <input type=text id="interval_temp" class=form-control placeholder="number"> </div>
                         <div class=col-md-8>
-                            <select class="mdb-select form-control" id="u_time">
+                            <select class="mdb-select form-control" id="u_interval_temp">
                                 <option value=2>Second</option>
                                 <option value=3>Minute</option>
                                 <option value=4>Hour</option>
@@ -187,93 +216,38 @@
                         </div>
                     </div>
                 </div>
-                <div class=box-1 >
-                    <div class=form-group>
-                        <div class=row>
-                            <div class=col-md-8> <label>Host IP/ Address</label>
-                                <input type=text id="hipadd" class=form-control placeholder="Mqtt Broker Address">
-                            </div>
-                            <div class=col-md-4><label>Port</label>
-                                <input type=text id="port" class=form-control placeholder="1883" value=""> </div>
+
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Publish Topic timestamp</label>
+                    <input type=text id="pub_topic_ping" class=form-control placeholder="Status Publish Topic"> </div>
+
+                
+                <div class=form-group>
+                    <label>Upload Interval</label>
+                    <div class=row>
+                        <div class=col-md-4>
+                            <input type=text id="interval_ping" class=form-control placeholder="number"> </div>
+                        <div class=col-md-8>
+                            <select class="mdb-select form-control" id="u_interval_ping">
+                                <option value=2>Second</option>
+                                <option value=3>Minute</option>
+                                <option value=4>Hour</option>
+                            </select>
                         </div>
-                    </div>
-                    <div class=form-group>
-                        <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Client ID</label>
-                        <input type=text id="c_id" class=form-control placeholder="Client ID">
-                    </div>
-
-                    <div class=form-group>
-                        <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Qos</label>
-                        <select class="mdb-select form-control" id="QOS">
-                            <option value=1>0</option>
-                            <option value=2>1</option>
-                            <option value=3>2</option>
-
-                        </select>
-                    </div>
-                    <div class=form-group>
-                        <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Username</label>
-                        <input type=text id="U_name" class=form-control placeholder=Username> </div>
-
-                    <div class=form-group>
-                        <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Password</label>
-                        <input type="text" id="s_pass" class=form-control placeholder="Password OR Token"> </div>
-                    <div class=form-group>
-                        <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Publish Topic</label>
-                        <input type=text id="p_topic" class=form-control placeholder="Status Publish Topic"> </div>
-
-                </div>
-
-                <div class=box-2>
-                    <div class=form-group>
-                        <div class=row>
-                            <div class=col-md-8>
-                                <label>Host IP/ Address</label>
-                                <input type=text id="txtHttp_host" class=form-control placeholder="iot.beaconyun.com">
-                            </div>
-                            <div class=col-md-4> <label>port</label>
-                                <input type=text id="txtHttp_port" class=form-control placeholder="1883">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class=form-group><label>Request path</label>
-                        <input type=text id="txtHttp_requestpath" class=form-control placeholder="Request path"> </div>
-                </div>
-
-                <div class=box-3>
-                    <div class=form-group>
-                        <div class=row>
-                            <div class=col-md-8> <label>Host IP/ Address</label>
-                                <input type=text id="txtTcp_host" class=form-control placeholder="iot.beaconyun.com">
-                            </div>
-                            <div class=col-md-4><label>Port</label>
-                                <input type=text id="txtTcp_port" class=form-control placeholder="1883">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class=form-group> <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Client
-                            ID</label>
-                        <input type=text id="txtTcp_cid" class=form-control placeholder="Client ID">
                     </div>
                 </div>
 
-                <div class=box-4>
-                    <div class=form-group>
-                        <div class=row>
-                            <div class=col-md-8><label>Host IP/ Address</label> <input type=text id="txtSocket_host"
-                                    class=form-control placeholder=iot.beaconyun.com> </div>
-                            <div class=col-md-4><label>Port</label> <input type=text id="txtSocket_port"
-                                    class=form-control placeholder=:1883> </div>
-                        </div>
-                    </div>
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Subscribe Topic relay 1</label>
+                    <input type=text id="sub_topic_rel1" class=form-control placeholder="Status Publish Topic"> </div>
+                
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Subscribe Topic relay 2</label>
+                    <input type=text id="sub_topic_rel2" class=form-control placeholder="Status Publish Topic"> </div>
 
-                    <div class=form-group>
-                        <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Client ID</label>
-                        <input type=text id="txtSocket_cid" class=form-control placeholder="Client ID"> </div>
-                </div>
-
+                <div class=form-group>
+                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Subscribe Topic enable transmission</label>
+                    <input type=text id="sub_topic_en" class=form-control placeholder="Status Publish Topic"> </div>
 
                 <div class=form-group>
                     <div class=row>
@@ -333,17 +307,6 @@
         <script src=js/jquery-1.12.3.min.js> </script> <script src=js/bootstrap.min.js> </script> <script
             src=js/pixie-custom.js> </script> <script type="text/javascript">
 
-
-                var u_interval = "";
-                var u_time = "";
-                var h_IP_add = "";
-                var port = "";
-                var client_id = "";
-                var qos = "";
-                var username = "";
-                var password = "";
-                var publish_topic = "";
-                var request_path = "";
                 var parameters = "";
                 var mainResponse = {};
 
@@ -355,7 +318,6 @@
                         $("#txtmyip").html(response.myIP);
                         $("#wsid").html(response.wsid);
                         $("#localip").html(response.localIP);
-
                         $("#current_service").html(response.service);
                         $("#txtssid").val(response.apname);
                         $("#txtaplan").val(response.myIP);
@@ -371,38 +333,27 @@
                         var txtaplan = $("#txtaplan").val();
                         var txtssid = $("#txtssid").val();
                         var txtpass = $("#txtpass").val();
-
                         $.get("/applyBtnFunction?txtaplan=" + txtaplan + "&txtssid=" + txtssid + "&txtpass=" + txtpass).done(function (response) {
-
                             if (response == "ok") {
                                 alert("please reboot the device to apply changes");
-
                             }
-
                         });
                     });
 
                     $(document).on("click", "#set_pass", function () {
-
                         var newpassword = $("#admin_pass").val();
                         var confirmpassword = $("#confirm_pass1").val();
-
                         if (newpassword == confirmpassword) {
-
                             $.get("/adminpasswordfunction?confirmpassword=" + confirmpassword).done(function (response) {
-
                             })
                         }
                         else {
-
                             alert("Password should match");
                         }
-
                     });
 
                     $(document).on("click", "#scan_wifi", function () {
                         var scan_wifi = $("#scan_wifi").val();
-
                         $.get("/scan_wifi?scan_wifi=" + scan_wifi).done(function (response) {
                             console.log(response)
                             if (response.length > 0) {
@@ -410,7 +361,6 @@
                                 for (var item of response) {
                                     html = html + " <option value=" + item.ssid + ">" + item.ssid + "</option>";
                                 }
-
                                 $("#drpWLAN").html(html);
                             }
                         });
@@ -429,195 +379,129 @@
                     });
 
                     $(document).on('click', '#liService', function () {
-
                         setServiceData();
                     });
 
                     $(document).on("click", "#reboot_btn", function () {
                         var reboot_btn = "reboot_device";
-
                         $.get("/rebootbtnfunction?reboot_btn=" + reboot_btn).done(function (response) {
                             if (response == "ok") {
                                 alert("after 5 second device restarted");
-
                             }
                         });
                     });
 
                     $(document).on("click", "#reset_btn", function () {
                         var reset_btn = "reset_device";
-
                         $.get("/resetbtnfunction?reset_btn=" + reset_btn).done(function (response) {
-
                             if (response == "ok") {
                                 alert("device is reset, please reboot");
-
                             }
-
                         });
                     });
-
                 }
 
                 function setServiceData() {
-                    if (mainResponse) {
-                        $('#service').removeClass('socket-box-active');
-                        $('#service').removeClass('mqtt-box-active');
-                        $('#service').removeClass('http-box-active');
-                        $('#service').removeClass('tcp-box-active');
-                        $('#service_acc').val(mainResponse.Service);
-                        switch (mainResponse.Service) {
-                            case "HTTP":
-                                alert("HTTP selected");
-
-                                $("#txtHttp_host").val(mainResponse.host_ip);
-                                $("#txtHttp_port").val(mainResponse.port)
-                                $('#service').addClass('http-box-active');
-                                break;
-                            case "MQTT":
-                                alert("MQTT selected");
-
-                                $("#hipadd").val(mainResponse.host_ip);
-                                $("#port").val(mainResponse.port);
-                                $("#U_name").val(mainResponse.U_name);
-                                $("#p_topic").val(mainResponse.topic);
-                                $('#service').addClass('mqtt-box-active');
-                                break;
-                            case "TCP":
-                                alert("TCP selected");
-
-                                $("#txtTcp_host").val(mainResponse.host_ip);
-                                $("#txtTcp_port").val(mainResponse.port);
-                                $("#txtTcp_cid").val(mainResponse.c_id);
-                                $('#service').addClass('tcp-box-active');
-                                break;
-                  
+                    $.get("/serviceData").done( function(response){ 
+                        if( response ) {
+                            $("#hipadd").val(response.host);
+                            $("#port").val(response.port);
+                            $("#c_id").val(response.id);
+                            $("#QOS :selected").text(response.topic);
+                            $("#U_name").val(response.user);
+                            $("#s_pass").val(response.pass);
+                            $("#pub_topic_temp").val(response.temp_tp);
+                            $("#interval_temp").val(response.temp_tm);
+                            $("#u_interval_temp :selected").text(response.temp_ud)
+                            $("#pub_topic_ping").val(response.ping_tp);
+                            $("#interval_ping").val(response.ping_tm);
+                            $("#u_interval_ping :selected").text(response.ping_ud)
+                            $("#sub_topic_rel1").val(response.rel1_tp);
+                            $("#sub_topic_rel2").val(response.rel2_tp);
+                            $("#sub_topic_en").val(response.en_tp);
                         }
-                    }
-                    else {
-
-                        console.log("response empty");
-                    }
+                        else {
+                            console.log("response empty");
+                        }
+                    });
                 }
 
                 function getNetWork() {
                     var wifi_ssid = $("#drpWLAN :selected").text();
                     var wifi_pass = $("#wifi_pass").val();
                     var wifi_MODE = $("#wifi_MODE :selected").text();
-
                     var txtipadd = $("#txtipadd").val();
                     var net_m = $("#net_m").val();
                     var G_add = $("#G_add").val();
                     var P_dns = $("#P_dns").val();
                     var S_dns = $("#S_dns").val();
-
                     var urldata = "";
 
                     if (wifi_MODE == "static") {
-
                         urldata = "wifi_ssid=" + wifi_ssid + "&wifi_pass=" + wifi_pass + "&wifi_MODE=" + wifi_MODE + "&txtipadd=" + txtipadd + "&net_m=" + net_m + "&G_add=" + G_add + "&P_dns=" + P_dns + "&S_dns=" + S_dns;
                     }
-
                     else {
                         urldata = "wifi_ssid=" + wifi_ssid + "&wifi_pass=" + wifi_pass + "&wifi_MODE=" + wifi_MODE;
                     }
 
                     if (wifi_ssid == "" || wifi_pass == "") {
                         alert("SSID and password can't be empty");
-
-                    } else {
-
+                    } 
+                    else {
                         $.get("/connectBtnFunction?" + urldata).done(function (response) {
-
                             if (response == "ok") {
                                 alert("please reboot the device to apply changes");
-
                             }
-
                         });
                     }
                 }
 
-
-        function Gateway_passFunction() {
-                var x = document.getElementById("txtpass");
-
-                if (x.type === "password") {
-
-                    x.type = "text";
-
-                } else {
-
-                    x.type = "password";
-
+                function Gateway_passFunction() {
+                    var x = document.getElementById("txtpass");
+                    if (x.type === "password") {
+                        x.type = "text";
+                    } 
+                    else {
+                        x.type = "password";
+                    }
                 }
-            }
 
-                        function Router_passFunction() {
-                var x = document.getElementById("wifi_pass");
-
-                if (x.type === "password") {
-
-                    x.type = "text";
-
-                } else {
-
-                    x.type = "password";
-
+                function Router_passFunction() {
+                    var x = document.getElementById("wifi_pass");
+                    if (x.type === "password") {
+                        x.type = "text";
+                    } 
+                    else {
+                        x.type = "password";
+                    }
                 }
-            }
-
-
 
                 function getServiceData() {
+                    parameters = "{\"host\":\""        + $("#hipadd").val()                         + "\","
+                                    + "\"port\":"      + $("#port").val()                           + ","
+                                    + "\"id\":\""      + $("#c_id").val()                           + "\","
+                                    + "\"QOS\":"       + $("#QOS :selected").text()                 + ","
+                                    + "\"user\":\""    + $("#U_name").val()                         + "\","
+                                    + "\"pass\":\""    + $("#s_pass").val()                         + "\","
+                                    + "\"temp_tp\":\"" + $("#pub_topic_temp").val()                 + "\","
+                                    + "\"temp_tm\":"   + $("#interval_temp").val()                  + ","
+                                    + "\"temp_ud\":\"" + $("#u_interval_temp :selected").text()     + "\","
+                                    + "\"ping_tp\":\"" + $("#pub_topic_ping").val()                 + "\","
+                                    + "\"ping_tm\":"   + $("#interval_ping").val()                  + ","
+                                    + "\"ping_ud\":\"" + $("#u_interval_ping :selected").text()     + "\","
+                                    + "\"rel1_tp\":\"" + $("#sub_topic_rel1").val()                 + "\","
+                                    + "\"rel2_tp\":\"" + $("#sub_topic_rel2").val()                 + "\","
+                                    + "\"en_tp\":\""   + $("#sub_topic_en").val()                   + "\""
+                                + "}";
 
-                    var service_acc = $('#service_acc option:selected').text();
-                    if (service_acc == "HTTP") {
-                        u_interval = $("#uinterval").val();
-                        u_time = $("#u_time :selected").text();
-                        h_IP_add = $("#txtHttp_host").val();
-                        port = $("#txtHttp_port").val();
-                        request_path = $("#txtHttp_requestpath").val();
-
-                    } else if (service_acc == "MQTT") {
-
-                        u_interval = $("#uinterval").val();
-                        u_time = $("#u_time :selected").text();
-                        h_IP_add = $("#hipadd").val();
-                        port = $("#port").val();
-                        client_id = $("#c_id").val();
-
-                        qos = $("#QOS :selected").text();
-                        username = $("#U_name").val();
-                        password = $("#s_pass").val();
-                        publish_topic = $("#p_topic").val();
-
-                    } else if (service_acc == "TCP") {
-
-                        u_interval = $("#uinterval").val();
-                        u_time = $("#u_time :selected").text();
-                        h_IP_add = $("#txtTcp_host").val();
-                        port = $("#txtTcp_port").val();
-
-                        client_id = $("#txtTcp_cid").val();
-
-                    } 
-
-                    parameters = "{\"service\":\"" + service_acc + "\",\"host_ip\":\"" + h_IP_add + "\",\"port\":" + port + ",\"uinterval\":" + u_interval + ",\"u_time\":\"" + u_time + "\",\"c_id\":\"" + client_id + "\",\"QOS\":" + qos + ",\"U_name\":\"" + username + "\",\"s_pass\":\"" + password + "\",\"p_topic\":\"" + publish_topic + "\",\"Http_requestpath\":\"" + request_path + "\"}";
-
-                    if (h_IP_add == "" || port == "") {
-
+                    if ($("#hipadd").val() == "" || $("#port").val() == "") {
                         alert("Host,Port can't be empty");
-
-                    } else {
-
-                        $.get("/applyServiceFunction?parameters=" + parameters).done(function (response) {
-
+                    } 
+                    else {
+                        $.get("/applyServiceFunction?parameters=" + parameters).done( function (response) {
                             if (response == "ok") {
                                 alert("please reboot device to apply changes");
-
                             }
-
                         });
                     }
                 }

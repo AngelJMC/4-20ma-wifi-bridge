@@ -5,8 +5,8 @@
 #include <PubSubClient.h>
 #include <HTTPClient.h>
 
-#include <EEPROM.h>
-#define EEPROM_SIZE 230
+#include "config-mng.h"
+
 
 WiFiClient wifiClient;
 //##########################  configuration and variables  ##################
@@ -56,9 +56,8 @@ bool testWifi(void) {
     int c = 0;
     Serial.println("Waiting for Wifi to connect");
     while ( c < 30 ) {
-        if (WiFi.status() == WL_CONNECTED)
-        {
-        return true;
+        if (WiFi.status() == WL_CONNECTED) {
+            return true;
         }
         delay(500);
         Serial.print(WiFi.status());
@@ -81,15 +80,13 @@ void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip
     int counter = 0;
     int lastIndex = 0;
     for (int i = 0; i < eap.length(); i++) {
-
         if (eap.substring(i, i + 1) == ".") {
-        ipaddress[counter] = eap.substring(lastIndex, i);
-
-        lastIndex = i + 1;
-        counter++;
+            ipaddress[counter] = eap.substring(lastIndex, i);
+            lastIndex = i + 1;
+            counter++;
         }
         if (i == eap.length() - 1) {
-        ipaddress[counter] = eap.substring(lastIndex);
+            ipaddress[counter] = eap.substring(lastIndex);
         }
 
     }
@@ -100,17 +97,30 @@ void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip
 
 }
 
+
+/** Funtion to convert a String yo ip struct passed by reference */
+static void stringToIp(struct ip* dest, String src) {
+    int i = 0;
+    char* pch = strtok((char*)src.c_str(), ".");
+    while (pch != NULL) {
+        dest->ip[i] = atoi(pch);
+        pch = strtok(NULL, ".");
+        i++;
+    }
+}
+
+
 static void reconnect() {
     // Loop until we're reconnected
     while (!client.connected()) {
         status = WiFi.status();
         if ( status != WL_CONNECTED) {
-        WiFi.begin(wsid.c_str(), wpass.c_str());
-        while (WiFi.status() != WL_CONNECTED) {
-            delay(500);
-            Serial.print(".");
-        }
-        Serial.println("Connected to AP");
+            WiFi.begin(wsid.c_str(), wpass.c_str());
+            while (WiFi.status() != WL_CONNECTED) {
+                delay(500);
+                Serial.print(".");
+            }
+            Serial.println("Connected to AP");
         }
         Serial.print("Connecting to ThingsBoard node ...");
         // Attempt to connect (clientId, username, password)
@@ -118,32 +128,30 @@ static void reconnect() {
 
         const char* cuname = NULL;
         if (U_name != "") {
-        cuname  = U_name.c_str();
+            cuname  = U_name.c_str();
         }
         const char* cpass = NULL;
         if (s_pass != "") {
-        cpass = s_pass.c_str();
+            cpass = s_pass.c_str();
         }
 
         if (client.connect(c_id.c_str(), cuname, cpass)) {
-        Serial.println( "[DONE]" );
-
-        } else {
-        Serial.print( "[FAILED] [ rc = " );
-        Serial.print( client.state() );
-        Serial.println( " : retrying in 5 seconds]" );
-        // Wait 5 seconds before retrying
-        delay( 4000 );
+            Serial.println( "[DONE]" );
+        } 
+        else {
+            Serial.print( "[FAILED] [ rc = " );
+            Serial.print( client.state() );
+            Serial.println( " : retrying in 5 seconds]" );
+            // Wait 5 seconds before retrying
+            delay( 4000 );
         }
     }
 }
 
 void webserver_task( void * parameter ) {
 
-    if ( !EEPROM.begin(EEPROM_SIZE) ) {
-        Serial.println("failed to initialise EEPROM"); 
-        vTaskDelay(pdMS_TO_TICKS(3000));
-    }
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    config_load(  );
 
     //########################  reading config file ########################################
     if (!SPIFFS.begin()) {
@@ -171,36 +179,15 @@ void webserver_task( void * parameter ) {
 
     WiFi.mode(WIFI_AP_STA);
     //@@@@@@@@@@@@@@@@@@@@@@@@@@@  EEPROM read FOR SSID-PASSWORD- ACCESS POINT IP @@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    String esid = "";
-    String ip1, ip2, ip3, ip4;
+    
 
-    for (int ssidaddress = 0; EEPROM.read(ssidaddress) != '\0' ; ++ssidaddress) {
-        esid += char( EEPROM.read(ssidaddress) );
-    }
-    //  Serial.print("Access point SSID:");
-    //  Serial.println(esid);
-
-    String epass = "";
-    for (int passaddress = 22 ; passaddress < 43 ; ++passaddress) {
-        epass += char( EEPROM.read(passaddress) );
-    }
-    //  Serial.print("Access point PASSWORD:");
-    //  Serial.print(epass);
-    //  Serial.println(" ");
-
-    String eap = "";
-    for (int APaddress = 44 ; EEPROM.read(APaddress) != '\0' ; ++APaddress){
-        eap += char(EEPROM.read(APaddress));
-    }
-    //  Serial.print("Access point ADDRESS: ");
-    //  Serial.print(eap);
-    //  Serial.println(" ");
-
+    Serial.printf("Access point SSID: %s\n", cfg.ssid);
+    Serial.printf("Access point PASSWORD: %s\n", cfg.pass);
+    Serial.printf("Access point ADDRESS: %s\n", cfg.apaddr);
     //##############################   ACESS POINT begin on given credential #################################
 
-    //if ((esid == NULL ) && (epass == NULL)) {
-    if ( true ) {
-        Serial.println("###  FIRST TIME SSID PASSWORD SET  ### ");
+    if ( (cfg.ssid[0] == 0 ) && (cfg.pass[0] == 0) ) {
+        Serial.println("\n###  FIRST TIME SSID PASSWORD SET  ### ");
         StaticJsonDocument<500> doc;
         auto error = deserializeJson(doc, abc);
         JsonObject root = doc.as<JsonObject>();
@@ -208,55 +195,19 @@ void webserver_task( void * parameter ) {
             Serial.println("parseObject() failed");
             return;
         }
-        String    apsid =  root["AP_name"];
-        String    appass = root["AP_pass"];
-
-        for (int i = 0; i < 21; ++i) {
-            EEPROM.write(i, 0);  //AP ssid
-        }
-        EEPROM.commit();
-        
-        for (int ssidaddress = 0; ssidaddress < apsid.length(); ++ssidaddress) {
-            EEPROM.write(ssidaddress , apsid[ssidaddress]);
-            Serial.print("WRITING  default AP SSID :: ");
-            Serial.println(apsid[ssidaddress]);
-        }
-        EEPROM.commit();
-
-        for (int i = 22; i < 43 ; ++i) {
-            EEPROM.write(i, 0);  // AP password
-        }
-        EEPROM.commit();
-        
-        for (int i = 0; i < appass.length(); ++i) {
-            EEPROM.write(22 + i, appass[i]);
-            Serial.print("WRITING  default AP PASSWORD  :: ");
-            Serial.println(appass[i]);
-        }
-        EEPROM.commit();
-
-        WiFi.softAP(apsid.c_str(), appass.c_str()); //Password not used
-        apname = apsid;
-        delay(800);
-
+        strcpy( cfg.ssid, root["AP_name"] );
+        strcpy( cfg.pass, root["AP_pass"] );
+        config_savecfg( );
     }
+    
+    Serial.printf("Set up access point. SSID: %s, PASS: %s\n", cfg.ssid, cfg.pass);
+    WiFi.softAP( cfg.ssid, cfg.pass);
+    apname = cfg.ssid;
+    vTaskDelay( pdMS_TO_TICKS(800) );
 
-    else {
-        //    Serial.println("@@@@  GETTING SSID N PASSWORD  @@@@@ ");
-        Serial.print("Access point SSID:");
-        Serial.println(esid);
-        Serial.print("Access point PASSWORD:");
-        Serial.print(epass);
-        Serial.println(" ");
-        WiFi.softAP(esid.c_str(), epass.c_str());
-        apname = esid;
-    }
 
-    //if (eap == NULL )
-    if ( true ) {
-        Serial.println("");
-        Serial.println("FIRST TIME AP ADDRESS SETTING 192.168.4.1");
-
+    if ( cfg.apaddr[0] == 0 ) {
+        Serial.println("\nFIRST TIME AP ADDRESS SETTING 192.168.4.1");
         StaticJsonDocument<500> doc;
         auto error = deserializeJson(doc, abc);
         JsonObject root = doc.as<JsonObject>();
@@ -264,51 +215,22 @@ void webserver_task( void * parameter ) {
             Serial.println("parseObject() failed");
             return;
         }
-
-        String    apip =   root["AP_IP"];
-        for (int i = 0; i < apip.length(); ++i) {
-            EEPROM.write(44 + i, apip[i]);
-            Serial.print("access point IP  WRITE:: ");
-            Serial.println(apip[i]);
-        }
-        EEPROM.commit();
-
-        String AP;
-        for (int APaddress = 44 ; APaddress < 65 ; ++APaddress) {
-            AP += char(EEPROM.read(APaddress));
-        }
-        Serial.print("ACCESSPOINT ADDRESS: ");
-        Serial.println(AP);
-        Serial.println("");
-        Serial.println("");
-
-        ipAdress(AP, ip1, ip2, ip3, ip4);
-
-        IPAddress Ip(ip1.toInt(), ip2.toInt(), ip3.toInt(), ip4.toInt());
-        IPAddress NMask(255, 255, 0, 0);
-
-        WiFi.softAPConfig(Ip, Ip, NMask );
-        myIP = WiFi.softAPIP().toString();
-
-        Serial.print("#### SERVER STARTED ON THIS: ");
-        Serial.print(myIP);
-        Serial.println("####");
+        strcpy(cfg.apaddr, root["AP_IP"]);
+        config_savecfg( );
     }
-    else {
-        Serial.print("Access point ADDRESS:");
-        Serial.println(eap);
 
-        ipAdress(eap, ip1, ip2, ip3, ip4);
-        IPAddress Ip(ip1.toInt(), ip2.toInt(), ip3.toInt(), ip4.toInt());
-        IPAddress NMask(255, 255, 0, 0);
+    Serial.printf("Access point ADDRESS: %s\n", cfg.apaddr);
+    String eap = cfg.apaddr;
+    String ip1, ip2, ip3, ip4;
+    ipAdress(eap, ip1, ip2, ip3, ip4);
+    IPAddress Ip(ip1.toInt(), ip2.toInt(), ip3.toInt(), ip4.toInt());
+    IPAddress NMask(255, 255, 0, 0);
 
-        WiFi.softAPConfig(Ip, Ip, NMask );
-        myIP = WiFi.softAPIP().toString();
+    WiFi.softAPConfig(Ip, Ip, NMask );
+    myIP = WiFi.softAPIP().toString();
 
-        Serial.print("#### SERVER STARTED ON THIS: ");
-        Serial.print(myIP);
-        Serial.print("####");
-    }
+    Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
+  
 
     //#########################  HTML+JS+CSS  HANDLING #####################################
 
@@ -383,7 +305,34 @@ void webserver_task( void * parameter ) {
     });
 
     server.on("/main", HTTP_GET, [](AsyncWebServerRequest * request) {
+        
         String content = "{\"myIP\":\"" + myIP + "\",\"localIP\":\"" + LOCAL_IP + "\",\"s_pass\":\"" + s_pass + "\",\"wsid\":\"" + wsid + "\",\"c_id\":\"" + c_id + "\",\"Service\":\"" + Service + "\",\"host_ip\":\"" + host_ip + "\",\"port\":\"" + port + "\",\"topic\":\"" + p_topic + "\",\"apname\":\"" + apname + "\",\"service\":\"" + service_s + "\",\"MAC\":\"" + getMacAddress() + "\"}";
+        Serial.println(content);
+        request->send(200, "application/json", content);
+    });
+
+    server.on("/serviceData", HTTP_GET, [](AsyncWebServerRequest * request) {
+        //struct service_config const* serv = &cfg.service;
+        DynamicJsonDocument doc(1024);
+
+        doc["host"]    = std::string( cfg.service.host_ip, strlen(cfg.service.host_ip));
+        doc["port"]    = cfg.service.port;
+        doc["id"]      = std::string(cfg.service.client_id, strlen(cfg.service.client_id));
+        doc["QOS"]     = cfg.service.qos;
+        doc["user"]    = std::string(cfg.service.username, strlen(cfg.service.username));
+        doc["pass"]    = std::string(cfg.service.password, strlen(cfg.service.password));  
+        doc["temp_tp"] = std::string(cfg.service.temp.topic, strlen(cfg.service.temp.topic));
+        doc["temp_tm"] = cfg.service.temp.interval;
+        doc["temp_ud"] = std::string(cfg.service.temp.unit, strlen(cfg.service.temp.unit));
+        doc["ping_tp"] = std::string(cfg.service.ping.topic, strlen(cfg.service.ping.topic));
+        doc["ping_tm"] = cfg.service.ping.interval;
+        doc["ping_ud"] = std::string(cfg.service.ping.unit, strlen(cfg.service.ping.unit));
+        doc["rel1_tp"] = std::string(cfg.service.relay1.topic, strlen(cfg.service.relay1.topic));
+        doc["rel2_tp"] = std::string(cfg.service.relay2.topic, strlen(cfg.service.relay2.topic));
+        doc["en_tp"]   = std::string(cfg.service.enableTemp.topic , strlen(cfg.service.enableTemp.topic));
+
+        String content;
+        serializeJson(doc, content);
         Serial.println(content);
         request->send(200, "application/json", content);
     });
@@ -416,7 +365,7 @@ void webserver_task( void * parameter ) {
                         json += "]";
                     }
                 }
-                delay(10);
+                vTaskDelay(pdMS_TO_TICKS(10));
                 Serial.println(json);
                 request->send(200, "application/json", json);
             }
@@ -428,196 +377,85 @@ void webserver_task( void * parameter ) {
     server.on("/applyBtnFunction", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
         String txtssid = request->getParam("txtssid")->value();
-        String  txtpass = request->getParam("txtpass")->value();
-        String  txtaplan = request->getParam("txtaplan")->value();
-
         if (txtssid.length() > 0) {
-            for (int i = 0; i < 21; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-
-            Serial.print("RE-writting: ");
-            for (int ssidaddress = 0; ssidaddress < txtssid.length(); ++ssidaddress) {
-                EEPROM.write(ssidaddress , txtssid[ssidaddress]);
-                Serial.print("WRITING AP SSID :: ");
-                Serial.println(txtssid[ssidaddress]);
-            }
+            strcpy(cfg.ssid, txtssid.c_str());
+            Serial.printf("WRITING AP SSID :: %s\n", cfg.ssid);
         }
+
+        String txtpass = request->getParam("txtpass")->value();
         if ( txtpass.length() > 0) {
-
-            for (int i = 22; i < 43 ; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-
-            for (int i = 0; i < txtpass.length(); ++i) {
-                EEPROM.write(22 + i, txtpass[i]);
-                Serial.print("AP PASSWORD WRITE:: ");
-                Serial.println(txtpass[i]);
-            }
+            strcpy(cfg.pass, txtpass.c_str());
+            Serial.printf("WRITING AP PASS :: %s\n", cfg.pass);
         }
-        if ( txtaplan.length() > 0) {
-            for (int i = 44 ; i < 65 ; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
 
-            for (int i = 0; i < txtaplan.length(); ++i) {
-                EEPROM.write(44 + i, txtaplan[i]);
-                Serial.print("access point IP  WRITE:: ");
-                Serial.println(txtaplan[i]);
-            }
+        String txtapip = request->getParam("txtaplan")->value();
+        if ( txtapip.length() > 0) {
+            strcpy(cfg.apaddr , txtapip.c_str());
+            Serial.printf("WRITING AP IP :: %s\n", cfg.apaddr);
         }
-        EEPROM.commit();
+        
+        config_savecfg( );
         request->send(200, "text/plain", "ok");
     });
+
 
     //#####################################  Receving WIFI credential from WEB Page ############################
 
     server.on("/connectBtnFunction", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
         String  wifi_ssid = request->getParam("wifi_ssid")->value();
-        String  wifi_pass = request->getParam("wifi_pass")->value();
-        String  wifi_MODE  = request->getParam("wifi_MODE")->value();
-        Serial.println(wifi_MODE);
-
         if (wifi_ssid.length() > 0) {
-            for (int i = 66; i < 87; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            Serial.print("RE-writting wifi SSID: ");
-            for (int j = 0; j < wifi_ssid.length(); ++j) {
-                EEPROM.write(66 + j , wifi_ssid[j]);
-                Serial.print("WRITING wifi SSID :: ");
-                Serial.println(wifi_ssid[j]);
-            }
-            EEPROM.commit();
+            strcpy(cfg.wifi.ssid, wifi_ssid.c_str());
+            Serial.printf("WRITING WIFI SSID :: %s\n", cfg.wifi.ssid);
         }
+        
+        String  wifi_pass = request->getParam("wifi_pass")->value();
         if ( wifi_pass.length() > 0) {
-            for (int i = 88; i < 103; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            for (int i = 0; i < wifi_pass.length(); ++i) {
-                EEPROM.write(88 + i, wifi_pass[i]);
-                Serial.print("PASS WRITE:: ");
-                Serial.println(wifi_pass[i]);
-            }
-            EEPROM.commit();
+            strcpy(cfg.wifi.pass, wifi_pass.c_str());
+            Serial.printf("WRITING WIFI PASS :: %s\n", cfg.wifi.pass);
         }
 
-        //##########################   Writing WIFI settings to EEPROM ###############################################
+        String  wifi_MODE  = request->getParam("wifi_MODE")->value();
         if (wifi_MODE == "dhcp") {
+            cfg.wifi.dhcp = true;
+            Serial.printf("WRITING WIFI DHCP :: %s\n", cfg.wifi.dhcp ? "true" : "false"); 
+        }
+        else if (wifi_MODE == "static") {
+            
+            String ipstatic = request->getParam("txtipadd")->value();
+            String netmask  = request->getParam("net_m")->value();
+            String gateway  = request->getParam("G_add")->value();
+            String dns1     = request->getParam("P_dns")->value();
+            String dns2     = request->getParam("S_dns")->value();
+        
+            Serial.println(ipstatic);
+            Serial.println(netmask);
+            Serial.println(gateway);
+            Serial.println(dns1);
+            Serial.println(dns2);
 
             if ( wifi_MODE.length() > 0) {
-                for (int i = 116; i < 122; ++i) {
-                    EEPROM.write(i, 0);
-                }
-                EEPROM.commit();
-                for (int i = 0; i < wifi_MODE.length(); ++i) {
-                    EEPROM.write(116 + i, wifi_MODE[i]);
-                    Serial.print("wifi mode WRITE:: ");
-                    Serial.println(wifi_MODE[i]);
-                }
-                EEPROM.commit();
+                cfg.wifi.dhcp = false;
+                Serial.println(" Mode STATIC selected ");
             }
-        }
-        if (wifi_MODE == "static") {
-        Serial.println(" Mode STATIC selected ");
 
-        String txtipadd  = request->getParam("txtipadd")->value();
-        String net_m  = request->getParam("net_m")->value();
-        String G_add  = request->getParam("G_add")->value();
-        String P_dns  = request->getParam("P_dns")->value();
-        String S_dns  = request->getParam("S_dns")->value();
+            if ( ipstatic.length() > 0)
+                stringToIp(&cfg.wifi.ip, ipstatic);
+            
+            if ( netmask.length() > 0)
+                stringToIp(&cfg.wifi.netmask, netmask);
 
-        Serial.println(wifi_ssid);
-        Serial.println(wifi_pass);
-        Serial.println(txtipadd);
-        Serial.println(net_m);
-        Serial.println(G_add);
-        Serial.println(P_dns);
-        Serial.println(S_dns);
+            if ( gateway.length() > 0)
+                stringToIp(&cfg.wifi.gateway, gateway);
 
-        if ( wifi_MODE.length() > 0) {
-            for (int i = 116; i < 122; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            for (int i = 0; i < wifi_MODE.length(); ++i) {
-                EEPROM.write(116 + i, wifi_MODE[i]);
-                Serial.print("wifi mode WRITE:: ");
-                Serial.println(wifi_MODE[i]);
-            }
-            EEPROM.commit();
+            if ( dns1.length() > 0)
+                stringToIp(&cfg.wifi.primaryDNS, dns1);
+
+            if ( dns2.length() > 0)
+                stringToIp(&cfg.wifi.secondaryDNS, dns2);
         }
 
-        if ( txtipadd.length() > 0) {
-            for (int i = 123; i < 143; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            for (int i = 0; i < txtipadd.length(); ++i) {
-                EEPROM.write(123 + i, txtipadd[i]);
-                Serial.print("Static IP writing:: ");
-                Serial.println(txtipadd[i]);
-            }
-            EEPROM.commit();
-        }
-
-        if ( net_m.length() > 0) {
-            for (int i = 143; i < 160 ; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            for (int i = 0; i < net_m.length(); ++i) {
-                EEPROM.write(143 + i, net_m[i]);
-                Serial.print(" net mask writing:: ");
-                Serial.println(net_m[i]);
-            }
-            EEPROM.commit();
-        }
-
-        if ( G_add.length() > 0) {
-            for (int i = 161; i < 180 ; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            for (int i = 0; i < G_add.length(); ++i) {
-                EEPROM.write(161 + i, G_add[i]);
-                Serial.print("GATEWAY IP writing:: ");
-                Serial.println(G_add[i]);
-            }
-            EEPROM.commit();
-        }
-        if ( P_dns.length() > 0) {
-            for (int i = 181; i < 200 ; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            for (int i = 0; i < P_dns.length(); ++i) {
-                EEPROM.write(181 + i, P_dns[i]);
-                Serial.print("PRIMARY DNS writing:: ");
-                Serial.println(P_dns[i]);
-            }
-            EEPROM.commit();
-        }
-
-        if ( S_dns.length() > 0) {
-            for (int i = 201; i < 216 ; ++i) {
-                EEPROM.write(i, 0);
-            }
-            EEPROM.commit();
-            for (int i = 0; i < S_dns.length(); ++i) {
-                EEPROM.write(201 + i, S_dns[i]);
-                Serial.print("SECONDARY DNS writing:: ");
-                Serial.println(S_dns[i]);
-            }
-            EEPROM.commit();
-        }
-        }
+        config_savecfg( );
         request->send(200, "text/plain", "ok");
 
     });
@@ -628,7 +466,7 @@ void webserver_task( void * parameter ) {
         if (request->getParam("reboot_btn")->value() == "reboot_device") {
             Serial.print("restarting device");
             request->send(200, "text/plain", "ok");
-            delay(5000);
+            vTaskDelay(pdMS_TO_TICKS(5000));
             ESP.restart();
         }
     });
@@ -638,66 +476,15 @@ void webserver_task( void * parameter ) {
     server.on("/adminpasswordfunction", HTTP_GET, [](AsyncWebServerRequest * request) {
         String confirmpassword = request->getParam("confirmpassword")->value();
         Serial.print(confirmpassword);
-
     });
 
     //######################################    RESET to Default  ############################################
     server.on("/resetbtnfunction", HTTP_GET, [](AsyncWebServerRequest * request) {
 
         if (request->getParam("reset_btn")->value() == "reset_device") {
-            for (int i = 66; i < 103; ++i) {
-                EEPROM.write(i, 0);  // wsid- wpass eeprom erase
-            }
-            EEPROM.commit();
-            for (int i = 116; i < 220; ++i) {
-                EEPROM.write(i, 0);  // wifi mode and parameters are cleared
-            }
-            EEPROM.commit();
-
-            StaticJsonDocument<500> doc;
-            auto error = deserializeJson(doc, abc);
-            JsonObject root = doc.as<JsonObject>();
-            if ( error ) {
-                Serial.println("parseObject() failed");
-                return;
-            }
-
-            String    apsid = (root["AP_name"]);
-            String    appass = root["AP_pass"];
-            String    apip =   root["AP_IP"];
-            for (int i = 0; i < 21; ++i) {
-                EEPROM.write(i, 0);  //AP ssid
-            }
-            EEPROM.commit();
-            for (int ssidaddress = 0; ssidaddress < apsid.length(); ++ssidaddress) {
-                EEPROM.write(ssidaddress , apsid[ssidaddress]);
-                Serial.print("WRITING  default AP SSID :: ");
-                Serial.println(apsid[ssidaddress]);
-            }
-            
-            for (int i = 22; i < 43 ; ++i) {
-                EEPROM.write(i, 0);  // AP password
-            }
-            EEPROM.commit();
-            
-            for (int i = 0; i < appass.length(); ++i) {
-                EEPROM.write(22 + i, appass[i]);
-                Serial.print("AP PASSWORD WRITE:: ");
-                Serial.println(appass[i]);
-            }
-            for (int i = 44; i < 65 ; ++i) {
-                EEPROM.write(i, 0);  //AP ip
-            }
-            EEPROM.commit();
-            
-            for (int i = 0; i < apip.length(); ++i) {
-                EEPROM.write(44 + i, apip[i]);
-                Serial.print("access point IP  WRITE:: ");
-                Serial.println(apip[i]);
-            }
-            EEPROM.commit();
-            Serial.println("EEPROM cleared");
-            SPIFFS.remove("/ServiceData_jsonfile.txt");
+            //config_setdefault( ); 
+            Serial.print("restarting device");
+            //SPIFFS.remove("/ServiceData_jsonfile.txt");
         }
         request->send(200, "text/plain", "ok");
     });
@@ -706,66 +493,88 @@ void webserver_task( void * parameter ) {
     server.on("/applyServiceFunction", HTTP_GET, [] (AsyncWebServerRequest * request) {
         String parameters = request->getParam("parameters")->value();
         Serial.println(parameters);
-        File f = SPIFFS.open(s_data_file, "w");
-
-        if (!f) {
-            Serial.println("file open failed");
-        }
-        else {
-            Serial.println("File Writing");
-            f.print(parameters);
-            f.close(); //Close file
-            Serial.println("File closed");
+        
+        const size_t capacity = JSON_OBJECT_SIZE(11) + 240;
+        DynamicJsonDocument doc(capacity);
+        auto error = deserializeJson(doc, parameters);
+        JsonObject root = doc.as<JsonObject>();
+        if (error) {
+            Serial.println("parseObject() failed");
+            return;
         }
 
-        File dataFile = SPIFFS.open(s_data_file, "r");   //Open File for reading
-        Serial.println("Reading Data from File function time:");
-        //Data from filee
-        if (!dataFile) {
-            Serial.println("Count file open failed on read.");
+        memset( &cfg.service, 0, sizeof( cfg.service ) );
+
+        if (root.containsKey("host")) 
+            strcpy(cfg.service.host_ip, root["host"]);
+
+        if (root.containsKey("port")) 
+            cfg.service.port = root["port"];
+
+        if (root.containsKey("id")) 
+            strcpy(cfg.service.client_id, root["id"]);
+
+        if (root.containsKey("QOS")) 
+            cfg.service.qos = root["QOS"];
+
+        if (root.containsKey("user")) 
+            strcpy(cfg.service.username, root["user"]);
+
+        if (root.containsKey("pass")) 
+            strcpy(cfg.service.password, root["pass"]);
+
+        if (root.containsKey("temp_tp")) 
+            strcpy(cfg.service.temp.topic, root["temp_tp"]);
+        
+        if (root.containsKey("temp_tm")) 
+            cfg.service.temp.interval = root["temp_tm"];
+
+        if (root.containsKey("temp_ud")) {
+            strcpy(cfg.service.temp.unit, root["temp_ud"]);
         }
-        else {
-            size_t size = dataFile.size();
-            std::unique_ptr<char[]> buf(new char[size]);
-            dataFile.readBytes(buf.get(), size);
 
-            const size_t capacity = JSON_OBJECT_SIZE(11) + 240;
-            DynamicJsonDocument doc(capacity);
-            auto error = deserializeJson(doc, abc);
-            JsonObject root = doc.as<JsonObject>();
-            if ( error ) {
-                Serial.println("parseObject() failed");
-                return;
-            }
+        if (root.containsKey("ping_tp")) 
+            strcpy(cfg.service.ping.topic, root["ping_tp"]);
+        
+        if (root.containsKey("ping_tm")) 
+            cfg.service.ping.interval = root["ping_tm"];
 
-            Service = root["service"].as<String>();
-            host_ip = root["host_ip"].as<String>();
-            port = root["port"];
-            uinterval = root["uinterval"];
-            u_time = root["u_time"].as<String>(); //
-            c_id = root["c_id"].as<String>(); // "Abcdefghijl"
-            QOS = root["QOS"]; // 0
-            U_name = root["U_name"].as<String>();
-            p_topic = root["p_topic"].as<String>();
-            Http_requestpath = root["Http_requestpath"].as<String>();
-
-            //      Serial.println(Service);
-            //      Serial.println(host_ip);
-            //      Serial.println(port);
-            //      Serial.println(uinterval);
-            //      Serial.println(u_time);
-            //      Serial.println(c_id);
-            //      Serial.println(QOS);
-            //      Serial.println(U_name);
-            //      Serial.println(s_pass);
-            //      Serial.println(p_topic);
-            //      Serial.println(Http_requestpath);
+        if (root.containsKey("ping_ud")) {
+            strcpy(cfg.service.ping.unit, root["ping_ud"]);
         }
-        dataFile.close();
+
+        if (root.containsKey("rel1_tp")) 
+            strcpy(cfg.service.relay1.topic, root["rel1_tp"]);
+
+        if (root.containsKey("rel2_tp")) 
+            strcpy(cfg.service.relay2.topic, root["rel2_tp"]);
+
+        if (root.containsKey("en_tp")) 
+            strcpy(cfg.service.enableTemp.topic, root["en_tp"]);
+
+        
+        Serial.printf("WRITING HOST IP :: %s\n", cfg.service.host_ip);
+        Serial.printf("WRITING PORT :: %d\n", cfg.service.port);
+        Serial.printf("WRITING CLIENT_ID :: %s\n", cfg.service.client_id);
+        Serial.printf("WRITING QOS :: %d\n", cfg.service.qos);
+        Serial.printf("WRITING USER :: %s\n", cfg.service.username);
+        Serial.printf("WRITING PASS :: %s\n", cfg.service.password);
+        Serial.printf("WRITING TEMP_TOPIC :: %s\n", cfg.service.temp.topic);
+        Serial.printf("WRITING TEMP_INTER :: %d\n", cfg.service.temp.interval);
+        Serial.printf("WRITING TEMP_UND :: %s\n", cfg.service.temp.unit);
+        Serial.printf("WRITING PING_TOPIC :: %s\n", cfg.service.ping.topic);
+        Serial.printf("WRITING PING_INTER :: %d\n", cfg.service.ping.interval);
+        Serial.printf("WRITING PING_UND :: %s\n", cfg.service.ping.unit);
+        Serial.printf("WRITING REL1_TOPIC :: %s\n", cfg.service.relay1.topic);
+        Serial.printf("WRITING REL2_TOPIC :: %s\n", cfg.service.relay2.topic);
+        Serial.printf("WRITING EN_TOPIC :: %s\n", cfg.service.enableTemp.topic);
+
+        config_savecfg( );
         request->send(200, "text/plain", "ok");
     });
     
     //################################   WiFi settings Read   #####################################
+#if 0
     for (int wsidaddress = 66; EEPROM.read(wsidaddress) != '\0' ; ++wsidaddress) {
         wsid += char(EEPROM.read(wsidaddress));
     }
@@ -869,54 +678,7 @@ void webserver_task( void * parameter ) {
             Serial.println(LOCAL_IP);
         }
     }
-
-    File f = SPIFFS.open(s_data_file, "r");   //Open File for reading
-    Serial.println(" ");
-    Serial.println(" ");
-    Serial.println("Reading Data first in loop from File:");
-
-    if (!f) {
-        Serial.println("Count file open failed on read.");
-    }
-    else {
-        size_t size = f.size();
-        std::unique_ptr<char[]> buf(new char[size]);
-        f.readBytes(buf.get(), size);
-
-        const size_t capacity = JSON_OBJECT_SIZE(11) + 240;
-        DynamicJsonDocument doc(capacity);
-        auto error = deserializeJson(doc, abc);
-        JsonObject root = doc.as<JsonObject>();
-        if ( error ) {
-            Serial.println("parseObject() failed");
-            return;
-        }
-        
-        Service = root["service"].as<String>();
-        host_ip = root["host_ip"].as<String>();
-        port = root["port"];
-        uinterval = root["uinterval"];
-        u_time = root["u_time"].as<String>(); //
-        c_id = root["c_id"].as<String>(); // "Abcdefghijl"
-        QOS = root["QOS"]; // 0
-        U_name = root["U_name"].as<String>();
-        s_pass = root["s_pass"].as<String>();
-        p_topic = root["p_topic"].as<String>();
-        Http_requestpath = root["Http_requestpath"].as<String>();
-
-        Serial.println(Service);
-        Serial.println(host_ip);
-        Serial.println(port);
-        Serial.println(p_topic);
-        Serial.println(uinterval);
-        Serial.println(u_time);
-        Serial.println(c_id);
-        Serial.println(QOS);
-        Serial.println(U_name);
-        Serial.println(s_pass);
-        Serial.println(Http_requestpath);
-    }
-    f.close();
+#endif
 
     if (Service == NULL) {
         service_s = "Not Set";
@@ -926,127 +688,32 @@ void webserver_task( void * parameter ) {
     }
     server.begin();
 
-    
-
-
-
     for(;;){ // infinite loop
         if (WiFi.status() == WL_CONNECTED) {
 
-            if (Service == "MQTT") {
-
-            //      Serial.println("MQTT selected");
-            //      Serial.print("BROKER:");
-            //      Serial.println(host_ip);
-            //      Serial.print("PORT:");
-            //      Serial.println(port);
-            //      Serial.print("MQTT TOPIC:");
-            //      Serial.println(p_topic);
-            //      Serial.print("MQTT USERNAME:");
-            //      Serial.println(U_name);
-            //      Serial.print("MQTT PASSWORD:");
-            //      Serial.println(s_pass);
-            //      Serial.print("MQTT UPLOAD :");
-            //      Serial.print(uinterval);
-            //      Serial.println(u_time);
-            //      Serial.print("MQTT CLIENTID :");
-            //      Serial.println(c_id);
-            //      Serial.print("MQTT QOS level :");
-            //      Serial.println(QOS);
-
-                client.setServer(host_ip.c_str(), port );
-                if ( !client.connected() ) {
-                    reconnect();
-                }
-
-                if ( millis() - lastSend > 1000 ) { // Update and send only after 1 seconds
-                    String payload = "{";
-                    payload += "\"temperature2\":"; payload += 0000; payload += ",";
-                    payload += "\"humidity2\":"; payload += 9999;
-                    payload += "}";
-
-                    char attributes[800];
-                    payload.toCharArray(attributes, 800 );
-                    client.publish(p_topic.c_str(), attributes );
-                    Serial.println( attributes );
-                    Serial.println("Data sent successfully");
-                    //        lastSend = millis();
-                    service_s = "MQTT(CONNECTED)";
-                }
-                lastSend = millis();
-                client.loop();
+            client.setServer(host_ip.c_str(), port );
+            if ( !client.connected() ) {
+                reconnect();
             }
 
-            if (Service == "HTTP") {
-
-                HTTPClient http;
-                Serial.println("HTTP selected");
-                Serial.print("HOST:");
-                Serial.println(host_ip);
-                Serial.print("PORT:");
-                Serial.println(port);
-                Serial.print("HTTTP UPLOAD :");
-                Serial.print(uinterval);
-                Serial.println(u_time);
-                Serial.print("HTTTP path :");
-                Serial.println(Http_requestpath);
-
-                String host = host_ip ;
-                host.concat( ":" );
-                host.concat( port );
-                host.concat( "/" );
-                host.concat( Http_requestpath );
-                Serial.println(host);
-
+            if ( millis() - lastSend > 1000 ) { // Update and send only after 1 seconds
                 String payload = "{";
                 payload += "\"temperature2\":"; payload += 0000; payload += ",";
                 payload += "\"humidity2\":"; payload += 9999;
                 payload += "}";
 
-                // host_ip = "http://apps.atozinfoway.in:1805/v0.0.1/punchstatus";
-                http.begin(host);  //Specify destination for HTTP request
-                http.addHeader("Content-Type", "application/json");             //Specify content-type header
-            
-                int httpResponseCode = http.POST(payload);   //Send the actual POST request
-                String response = http.getString();
-            
-                Serial.println(httpResponseCode);   //Print return code
-                Serial.println(response);
-                delay(3000);
-                service_s = "HTTP(CONNECTED)";
-                http.end();  //Free resources
+                char attributes[800];
+                payload.toCharArray(attributes, 800 );
+                client.publish(p_topic.c_str(), attributes );
+                Serial.println( attributes );
+                Serial.println("Data sent successfully");
+                //        lastSend = millis();
+                service_s = "MQTT(CONNECTED)";
             }
+            lastSend = millis();
+            client.loop();
 
-            if (Service == "TCP") {
-
-                Serial.println("TCP selected");
-                Serial.print("TCP HOST:");
-                Serial.println(host_ip);
-                Serial.print("TCP PORT:");
-                Serial.println(port);
-                Serial.print("TCP UPLOAD :");
-                Serial.print(uinterval);
-                Serial.println(u_time);
-                Serial.print("TCP CLIENTID :");
-                Serial.println(c_id);
-
-                WiFiClient client;
-                if (!client.connect(host_ip.c_str(), port)) {
-                    Serial.println("Connection to host failed");
-                    delay(1000);
-                    return;
-                }
-                Serial.println("Connected to server successful!");
-                //data to tcp server
-                String payload = "{";
-                payload += "\"temperature2\":"; payload += 0000; payload += ",";
-                payload += "\"humidity2\":"; payload += 9999;
-                payload += "}";
-
-                client.print(payload);
-                service_s = "TCP(CONNECTED)";
-                delay(4000);
-            }
+            
         }
         delay(5000);
     }
