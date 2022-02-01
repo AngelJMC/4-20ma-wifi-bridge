@@ -17,7 +17,7 @@
                 <a data-toggle=pill href=#status>
                     <img src=images/status.png alt>Status</a>
             </li>
-            <li>
+            <li id ="liNetwork">
                 <a data-toggle=pill href=#network>
                     <img src=images/network.png alt>Network</a>
             </li>
@@ -79,7 +79,6 @@
                     </li>
                 </form>
             </div>
-
 
             <div id=network class="tab-pane fade">
                 <div class=panel-group id=accordion>
@@ -161,8 +160,6 @@
                     </div>
                 </div>
             </div>
-
-
 
             <div id=service class="tab-pane fade">                
                 <div class=form-group>
@@ -374,12 +371,12 @@
                         getNetWork();
                     });
 
-                    $(document).on('change', '#service_acc', function () {
-                        // setServiceData();
-                    });
-
                     $(document).on('click', '#liService', function () {
                         setServiceData();
+                    });
+
+                    $(document).on('click', '#liNetwork', function () {
+                        setNetwork();
                     });
 
                     $(document).on("click", "#reboot_btn", function () {
@@ -454,6 +451,22 @@
                             }
                         });
                     }
+                }
+
+                function setNetwork(){
+                    $.get("/networkData").done( function(response){ 
+                        if( response ) {
+                            $("#wifi_MODE :selected").text(response.mode);
+                            $("#txtipadd").val(response.ip);
+                            $("#net_m").val(response.nm);
+                            $("#G_add").val(response.gw);
+                            $("#P_dns").val(response.dns1);
+                            $("#S_dns").val(response.dns2);
+                        }
+                        else {
+                            console.log("response empty");
+                        }
+                    });
                 }
 
                 function Gateway_passFunction() {

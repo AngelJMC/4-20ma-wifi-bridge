@@ -1,49 +1,48 @@
-#include <WiFi.h>
-#include "SPIFFS.h"
+
+
 #include "ESPAsyncWebServer.h"
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <HTTPClient.h>
-
 #include "config-mng.h"
+#include "SPIFFS.h"
 
-
-WiFiClient wifiClient;
 //##########################  configuration and variables  ##################
-int status = WL_IDLE_STATUS;
-unsigned long lastSend;
-PubSubClient client(wifiClient);
-String wsid ;
-String wpass;
-String password ;
-String static_ip ;
-String myIP ;
+//int status = WL_IDLE_STATUS;
+//unsigned long lastSend;
+
+//String wsid ;
+//String wpass;
+//String password ;
+//String static_ip ;
+//String myIP ;
 String LOCAL_IP ;
-String apname ;
+//String apname ;
 String abc;
 
-const char* file = "/config.json";   //Enter your file name
-const char* s_data_file = "/ServiceData_jsonfile.txt";
-String Service ;
-String service_s ;
-String host_ip ;
-int port ;
-int uinterval ;
-String u_time;
-String c_id ;
 
-int QOS ; // 0
-String U_name ;
-String s_pass ;
-String p_topic;
-String Http_requestpath;
+//const char* s_data_file = "/ServiceData_jsonfile.txt";
+//String Service ;
+//String service_s ;
+//String host_ip ;
+//int port ;
+//int uinterval ;
+//String u_time;
+//String c_id ;
 
+//int QOS ; // 0
+//String U_name ;
+//String s_pass ;
+//String p_topic;
+//String Http_requestpath;
+
+String jsonwifis;
 AsyncWebServer server(80);
+static int scan = false;
 
-static void reconnect();
 
 //################################  MAC ADDRESS FUNCTION  #########################################
-String getMacAddress() {
+String getMacAddress( void ) {
     uint8_t baseMac[6];
     // Get MAC address for WiFi station
     esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
@@ -51,32 +50,14 @@ String getMacAddress() {
     sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[5], baseMac[4], baseMac[3], baseMac[2], baseMac[1], baseMac[0]);
     return String(baseMacChr);
 }
-//####################################### testing wifi connection function ############################
-bool testWifi(void) {
-    int c = 0;
-    Serial.println("Waiting for Wifi to connect");
-    while ( c < 30 ) {
-        if (WiFi.status() == WL_CONNECTED) {
-            return true;
-        }
-        delay(500);
-        Serial.print(WiFi.status());
-        Serial.print(".");
-        c++;
-    }
-    Serial.println("");
-    Serial.println("Connect timed out, opening AP");
-    LOCAL_IP = "Not Connected";
-    WiFi.mode(WIFI_AP);
-    return false;
-}
+
 
 //############   Conversion for acceesspoint ip into unsigned int ###################
-const int numberOfPieces = 4;
-String ipaddress[numberOfPieces];
-void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip4)
-{
 
+void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip4) {
+
+    const int numberOfPieces = 4;
+    String ipaddress[numberOfPieces];
     int counter = 0;
     int lastIndex = 0;
     for (int i = 0; i < eap.length(); i++) {
@@ -94,7 +75,6 @@ void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip
     iip2 = ipaddress[1];
     iip3 = ipaddress[2];
     iip4 = ipaddress[3];
-
 }
 
 
@@ -109,129 +89,23 @@ static void stringToIp(struct ip* dest, String src) {
     }
 }
 
-
-static void reconnect() {
-    // Loop until we're reconnected
-    while (!client.connected()) {
-        status = WiFi.status();
-        if ( status != WL_CONNECTED) {
-            WiFi.begin(wsid.c_str(), wpass.c_str());
-            while (WiFi.status() != WL_CONNECTED) {
-                delay(500);
-                Serial.print(".");
-            }
-            Serial.println("Connected to AP");
-        }
-        Serial.print("Connecting to ThingsBoard node ...");
-        // Attempt to connect (clientId, username, password)
-        //,U_name.c_str(), s_pass.c_str()
-
-        const char* cuname = NULL;
-        if (U_name != "") {
-            cuname  = U_name.c_str();
-        }
-        const char* cpass = NULL;
-        if (s_pass != "") {
-            cpass = s_pass.c_str();
-        }
-
-        if (client.connect(c_id.c_str(), cuname, cpass)) {
-            Serial.println( "[DONE]" );
-        } 
-        else {
-            Serial.print( "[FAILED] [ rc = " );
-            Serial.print( client.state() );
-            Serial.println( " : retrying in 5 seconds]" );
-            // Wait 5 seconds before retrying
-            delay( 4000 );
-        }
-    }
+static void ipToString(String* dest, struct ip src) {
+    char buf[16];
+    sprintf(buf, "%d.%d.%d.%d", src.ip[0], src.ip[1], src.ip[2], src.ip[3]);
+    *dest = buf;
 }
+
+
+void printIp(struct ip* src) {
+    Serial.printf("%d.%d.%d.%d\n", src->ip[0], src->ip[1], src->ip[2], src->ip[3]);
+}
+
 
 void webserver_task( void * parameter ) {
 
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    config_load(  );
+    vTaskDelay(pdMS_TO_TICKS(3000));
 
-    //########################  reading config file ########################################
-    if (!SPIFFS.begin()) {
-        Serial.println("An Error has occurred while mounting SPIFFS");
-        return;
-    }
-
-    Serial.println("SPIFF successfully mounted");
-    File dataFile = SPIFFS.open(file, "r");   //Open File for reading
-    Serial.println("Reading Configuration Data from File:");
-    if ( !dataFile) {
-        Serial.println("Count file open failed on read.");
-    }
-    else {
-        for (int i = 0; i < dataFile.size(); i++) { //Read upto complete file size
-            abc += (char)dataFile.read();
-        }
-        dataFile.close();
-    }
-
-    Serial.print(abc);
-    Serial.println("");
-    Serial.println("");
-
-
-    WiFi.mode(WIFI_AP_STA);
-    //@@@@@@@@@@@@@@@@@@@@@@@@@@@  EEPROM read FOR SSID-PASSWORD- ACCESS POINT IP @@@@@@@@@@@@@@@@@@@@@@@@@@@@
     
-
-    Serial.printf("Access point SSID: %s\n", cfg.ssid);
-    Serial.printf("Access point PASSWORD: %s\n", cfg.pass);
-    Serial.printf("Access point ADDRESS: %s\n", cfg.apaddr);
-    //##############################   ACESS POINT begin on given credential #################################
-
-    if ( (cfg.ssid[0] == 0 ) && (cfg.pass[0] == 0) ) {
-        Serial.println("\n###  FIRST TIME SSID PASSWORD SET  ### ");
-        StaticJsonDocument<500> doc;
-        auto error = deserializeJson(doc, abc);
-        JsonObject root = doc.as<JsonObject>();
-        if (error) {
-            Serial.println("parseObject() failed");
-            return;
-        }
-        strcpy( cfg.ssid, root["AP_name"] );
-        strcpy( cfg.pass, root["AP_pass"] );
-        config_savecfg( );
-    }
-    
-    Serial.printf("Set up access point. SSID: %s, PASS: %s\n", cfg.ssid, cfg.pass);
-    WiFi.softAP( cfg.ssid, cfg.pass);
-    apname = cfg.ssid;
-    vTaskDelay( pdMS_TO_TICKS(800) );
-
-
-    if ( cfg.apaddr[0] == 0 ) {
-        Serial.println("\nFIRST TIME AP ADDRESS SETTING 192.168.4.1");
-        StaticJsonDocument<500> doc;
-        auto error = deserializeJson(doc, abc);
-        JsonObject root = doc.as<JsonObject>();
-        if (error) {
-            Serial.println("parseObject() failed");
-            return;
-        }
-        strcpy(cfg.apaddr, root["AP_IP"]);
-        config_savecfg( );
-    }
-
-    Serial.printf("Access point ADDRESS: %s\n", cfg.apaddr);
-    String eap = cfg.apaddr;
-    String ip1, ip2, ip3, ip4;
-    ipAdress(eap, ip1, ip2, ip3, ip4);
-    IPAddress Ip(ip1.toInt(), ip2.toInt(), ip3.toInt(), ip4.toInt());
-    IPAddress NMask(255, 255, 0, 0);
-
-    WiFi.softAPConfig(Ip, Ip, NMask );
-    myIP = WiFi.softAPIP().toString();
-
-    Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
-  
-
     //#########################  HTML+JS+CSS  HANDLING #####################################
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -305,16 +179,23 @@ void webserver_task( void * parameter ) {
     });
 
     server.on("/main", HTTP_GET, [](AsyncWebServerRequest * request) {
+        DynamicJsonDocument doc(1024);
+        doc["MAC"] = getMacAddress();
+        doc["myIP"] = WiFi.softAPIP().toString();
+        doc["wsid"] = cfg.wifi.ssid;
         
-        String content = "{\"myIP\":\"" + myIP + "\",\"localIP\":\"" + LOCAL_IP + "\",\"s_pass\":\"" + s_pass + "\",\"wsid\":\"" + wsid + "\",\"c_id\":\"" + c_id + "\",\"Service\":\"" + Service + "\",\"host_ip\":\"" + host_ip + "\",\"port\":\"" + port + "\",\"topic\":\"" + p_topic + "\",\"apname\":\"" + apname + "\",\"service\":\"" + service_s + "\",\"MAC\":\"" + getMacAddress() + "\"}";
+        //doc["localIP"] = LOCAL_IP;
+        doc["apname"] = cfg.ssid;
+        //doc["s_pass"] = s_pass;
+        
+        String content;
+        serializeJson(doc, content);
         Serial.println(content);
         request->send(200, "application/json", content);
     });
 
     server.on("/serviceData", HTTP_GET, [](AsyncWebServerRequest * request) {
-        //struct service_config const* serv = &cfg.service;
-        DynamicJsonDocument doc(1024);
-
+        DynamicJsonDocument doc(2048);
         doc["host"]    = std::string( cfg.service.host_ip, strlen(cfg.service.host_ip));
         doc["port"]    = cfg.service.port;
         doc["id"]      = std::string(cfg.service.client_id, strlen(cfg.service.client_id));
@@ -337,38 +218,34 @@ void webserver_task( void * parameter ) {
         request->send(200, "application/json", content);
     });
 
+    server.on("/networkData", HTTP_GET, [](AsyncWebServerRequest * request) {
+        DynamicJsonDocument doc(1024);
+        String temporal;
+        doc["mode"]  = std::string(cfg.wifi.mode, strlen(cfg.wifi.mode));
+        ipToString( &temporal, cfg.wifi.ip );
+        doc["ip"]    = temporal;
+        ipToString( &temporal, cfg.wifi.gateway );
+        doc["gw"]    = temporal;
+        ipToString( &temporal, cfg.wifi.netmask );
+        doc["nm"]    = temporal;
+        ipToString( &temporal, cfg.wifi.primaryDNS );
+        doc["dns1"]  = temporal;
+        ipToString( &temporal, cfg.wifi.secondaryDNS );
+        doc["dns2"]  = temporal;
+
+        String content;
+        serializeJson(doc, content);
+        Serial.println(content);
+        request->send(200, "application/json", content);
+    });
+
+    
     server.on("/scan_wifi", HTTP_GET, [](AsyncWebServerRequest * request) {
         String scan_wifi = request->getParam("scan_wifi")->value();
         if (scan_wifi) {
-            Serial.println("scan_wifi");
-            String json = "[";
-            int n = WiFi.scanNetworks();
-            if (n == 0){
-                Serial.println("no networks found");
-            }
-            else {
-                Serial.print(n);
-                Serial.println(" networks found");
-                for (int i = 0; i < n; ++i) {
-                    // Print SSID and RSSI for each network found
-                    if (i)
-                        json += ", ";
-                    json += " {";
-                    json += "\"rssi\":" + String(WiFi.RSSI(i));
-                    json += ",\"ssid\":\"" + WiFi.SSID(i) + "\"";
-                    json += ",\"bssid\":\"" + WiFi.BSSIDstr(i) + "\"";
-                    json += ",\"channel\":" + String(WiFi.channel(i));
-                    json += ",\"secure\":" + String(WiFi.encryptionType(i));
-                    //                json += ",\"hidden\":"+String(WiFi.isHidden(i)?"true":"false");
-                    json += "}";
-                    if (i == (n - 1)) {
-                        json += "]";
-                    }
-                }
-                vTaskDelay(pdMS_TO_TICKS(10));
-                Serial.println(json);
-                request->send(200, "application/json", json);
-            }
+            Serial.println(jsonwifis);    
+            request->send(200, "application/json", jsonwifis);
+            scan = true;
         }
     });
 
@@ -415,12 +292,11 @@ void webserver_task( void * parameter ) {
             Serial.printf("WRITING WIFI PASS :: %s\n", cfg.wifi.pass);
         }
 
-        String  wifi_MODE  = request->getParam("wifi_MODE")->value();
-        if (wifi_MODE == "dhcp") {
-            cfg.wifi.dhcp = true;
-            Serial.printf("WRITING WIFI DHCP :: %s\n", cfg.wifi.dhcp ? "true" : "false"); 
-        }
-        else if (wifi_MODE == "static") {
+        String  wifi_mode  = request->getParam("wifi_MODE")->value();
+        strcpy(cfg.wifi.mode, wifi_mode.c_str());
+        Serial.printf("WRITING WIFI MPDE :: %s\n", cfg.wifi.mode );
+
+        if (strcmp( wifi_mode.c_str(), "static") == 0) {
             
             String ipstatic = request->getParam("txtipadd")->value();
             String netmask  = request->getParam("net_m")->value();
@@ -433,11 +309,6 @@ void webserver_task( void * parameter ) {
             Serial.println(gateway);
             Serial.println(dns1);
             Serial.println(dns2);
-
-            if ( wifi_MODE.length() > 0) {
-                cfg.wifi.dhcp = false;
-                Serial.println(" Mode STATIC selected ");
-            }
 
             if ( ipstatic.length() > 0)
                 stringToIp(&cfg.wifi.ip, ipstatic);
@@ -529,9 +400,8 @@ void webserver_task( void * parameter ) {
         if (root.containsKey("temp_tm")) 
             cfg.service.temp.interval = root["temp_tm"];
 
-        if (root.containsKey("temp_ud")) {
+        if (root.containsKey("temp_ud"))
             strcpy(cfg.service.temp.unit, root["temp_ud"]);
-        }
 
         if (root.containsKey("ping_tp")) 
             strcpy(cfg.service.ping.topic, root["ping_tp"]);
@@ -539,9 +409,8 @@ void webserver_task( void * parameter ) {
         if (root.containsKey("ping_tm")) 
             cfg.service.ping.interval = root["ping_tm"];
 
-        if (root.containsKey("ping_ud")) {
+        if (root.containsKey("ping_ud"))
             strcpy(cfg.service.ping.unit, root["ping_ud"]);
-        }
 
         if (root.containsKey("rel1_tp")) 
             strcpy(cfg.service.relay1.topic, root["rel1_tp"]);
@@ -552,7 +421,9 @@ void webserver_task( void * parameter ) {
         if (root.containsKey("en_tp")) 
             strcpy(cfg.service.enableTemp.topic, root["en_tp"]);
 
-        
+        config_savecfg( );
+
+
         Serial.printf("WRITING HOST IP :: %s\n", cfg.service.host_ip);
         Serial.printf("WRITING PORT :: %d\n", cfg.service.port);
         Serial.printf("WRITING CLIENT_ID :: %s\n", cfg.service.client_id);
@@ -568,154 +439,47 @@ void webserver_task( void * parameter ) {
         Serial.printf("WRITING REL1_TOPIC :: %s\n", cfg.service.relay1.topic);
         Serial.printf("WRITING REL2_TOPIC :: %s\n", cfg.service.relay2.topic);
         Serial.printf("WRITING EN_TOPIC :: %s\n", cfg.service.enableTemp.topic);
-
-        config_savecfg( );
+        
         request->send(200, "text/plain", "ok");
     });
-    
-    //################################   WiFi settings Read   #####################################
-#if 0
-    for (int wsidaddress = 66; EEPROM.read(wsidaddress) != '\0' ; ++wsidaddress) {
-        wsid += char(EEPROM.read(wsidaddress));
-    }
 
-    Serial.println("");
-    Serial.println("");
-    Serial.print("Wifi SSID: ");
-    Serial.println(wsid);
-
-    for (int passaddress = 88 ; passaddress < 103; ++passaddress) {
-        wpass += char(EEPROM.read(passaddress));
-    }
-    Serial.print("Wifi PASSword: ");
-    Serial.println(wpass);
-
-    String W_mode = "";
-    for (int modeaddress = 116 ; modeaddress < 122 ; ++modeaddress) {
-        W_mode += char(EEPROM.read(modeaddress));
-    }
-    Serial.print("WI-FI_MODE: ");
-    Serial.println(W_mode);
-
-    if (wsid == NULL) {
-        wsid = "Not Given";
-        LOCAL_IP = "network not set";
-    }
-
-    //####################################### MODE CHECKING(DHCP-STATIC) AND WIFI BEGIN #######################################
-    if (W_mode == "dhcp") {
-        WiFi.begin(wsid.c_str(), wpass.c_str());
-        delay(2000);
-        if (testWifi()) {
-            Serial.print(WiFi.status());
-            Serial.println("YOU ARE CONNECTED");
-            LOCAL_IP = WiFi.localIP().toString();
-            Serial.println(LOCAL_IP);
-        }
-    }
-
-    if (W_mode == "static") {
-        for (int passaddress = 123 ; passaddress < 143; ++passaddress){
-            static_ip += char(EEPROM.read(passaddress));
-        }
-        Serial.print("W-static_ip: ");
-        Serial.println(static_ip);
-        ipAdress(static_ip, ip1, ip2, ip3, ip4);
-        String sb1, sb2, sb3, sb4;
-        String sub_net = "";
-        for (int passaddress = 143 ; passaddress < 160; ++passaddress) {
-            sub_net += char(EEPROM.read(passaddress));
-        }
-        Serial.print("sub_net-: ");
-        Serial.println(sub_net);
-        delay(1000);
-
-        ipAdress(sub_net, sb1, sb2, sb3, sb4);
-        String g1, g2, g3, g4;
-        String G_add = "";
-        for (int passaddress = 161 ; passaddress < 180; ++passaddress) {
-            G_add += char(EEPROM.read(passaddress));
-        }
-        Serial.print("G_add-: ");
-        Serial.println(G_add);
-        ipAdress(G_add, g1, g2, g3, g4);
-
-        String p1, p2, p3, p4;
-        String P_dns = "";
-        for (int passaddress = 181 ; passaddress < 200; ++passaddress) {
-            P_dns += char(EEPROM.read(passaddress));
-        }
-        Serial.print("Primary_dns-: ");
-        Serial.println(P_dns);
-        ipAdress(P_dns, p1, p2, p3, p4);
-
-        String s1, s2, s3, s4;
-        String S_dns = "";
-        for (int passaddress = 201 ; passaddress < 216; ++passaddress) {
-            S_dns += char(EEPROM.read(passaddress));
-        }
-        Serial.print("SECONDARY_dns-: ");
-        Serial.println(S_dns);
-        ipAdress(S_dns, s1, s2, s3, s4);
-
-        IPAddress S_IP(ip1.toInt(), ip2.toInt(), ip3.toInt(), ip4.toInt());
-        IPAddress gateway(g1.toInt(), g2.toInt(), g3.toInt(), g4.toInt());
-        IPAddress subnet(sb1.toInt(), sb2.toInt(), sb3.toInt(), sb4.toInt());
-        IPAddress primaryDNS(p1.toInt(), p2.toInt(), p3.toInt(), p4.toInt()); //optional
-        IPAddress secondaryDNS(s1.toInt(), s2.toInt(), s3.toInt(), s4.toInt()); //optional
-
-        if (!WiFi.config(S_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
-            Serial.println("STA Failed to configure");
-        }
-
-        WiFi.begin(wsid.c_str(), wpass.c_str());
-        delay(1000);
-
-        if (testWifi()) {
-            Serial.print(WiFi.status());
-            Serial.println("YOU ARE CONNECTED");
-            LOCAL_IP = WiFi.localIP().toString();
-            Serial.println(LOCAL_IP);
-        }
-    }
-#endif
-
-    if (Service == NULL) {
-        service_s = "Not Set";
-    }
-    else {
-        service_s = Service + "(SET)";
-    }
     server.begin();
 
     for(;;){ // infinite loop
-        if (WiFi.status() == WL_CONNECTED) {
 
-            client.setServer(host_ip.c_str(), port );
-            if ( !client.connected() ) {
-                reconnect();
+        if( scan ) {
+            scan = false;
+            Serial.println("scan_wifi");
+            uint8_t WIFI_SSIDs = WiFi.scanNetworks();     
+            if( WIFI_SSIDs != WIFI_SCAN_FAILED) {
+                jsonwifis = "[";
+                if (WIFI_SSIDs == 0){
+                    Serial.println("no networks found");
+                }
+                else {
+                    Serial.print(WIFI_SSIDs);
+                    Serial.println(" networks found");
+                    for (int i = 0; i < WIFI_SSIDs; ++i) {
+                        // Print SSID and RSSI for each network found
+                        if (i)
+                            jsonwifis += ",";
+                        jsonwifis += "{";
+                        jsonwifis += "\"rssi\":" + String(WiFi.RSSI(i));
+                        jsonwifis += ",\"ssid\":\"" + WiFi.SSID(i) + "\"";
+                        jsonwifis += ",\"bssid\":\"" + WiFi.BSSIDstr(i) + "\"";
+                        jsonwifis += ",\"channel\":" + String(WiFi.channel(i));
+                        jsonwifis += ",\"secure\":" + String(WiFi.encryptionType(i));
+                        //                json += ",\"hidden\":"+String(WiFi.isHidden(i)?"true":"false");
+                        jsonwifis += "}";
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                    
+                }
+                jsonwifis += "]";
             }
-
-            if ( millis() - lastSend > 1000 ) { // Update and send only after 1 seconds
-                String payload = "{";
-                payload += "\"temperature2\":"; payload += 0000; payload += ",";
-                payload += "\"humidity2\":"; payload += 9999;
-                payload += "}";
-
-                char attributes[800];
-                payload.toCharArray(attributes, 800 );
-                client.publish(p_topic.c_str(), attributes );
-                Serial.println( attributes );
-                Serial.println("Data sent successfully");
-                //        lastSend = millis();
-                service_s = "MQTT(CONNECTED)";
-            }
-            lastSend = millis();
-            client.loop();
-
-            
         }
-        delay(5000);
+
+        vTaskDelay(pdMS_TO_TICKS(250));
     }
 
 }
