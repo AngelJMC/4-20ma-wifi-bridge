@@ -9,6 +9,18 @@
 #include "mqtt_task.h"
 #include "time.h"
 
+enum {
+    debug = 0
+};
+
+enum {  RELAY1 = 26, 
+        RELAY2 = 27,
+        SENS   = 36,
+        LED1   = 8,
+        LED2   = 7,
+        SWITCH = 6 
+    };
+
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
 
@@ -99,15 +111,24 @@ static void reconnect() {
 
 static void tmtemp_callback( TimerHandle_t xTimer ) {
     struct service_config const* sc = &scfg;
-    client.publish( sc->temp.topic, "temperature");
-    Serial.println("Publishing temperature");          
+    char payload[32];
+    sprintf(payload, "%d", analogRead(SENS)); 
+    client.publish( sc->temp.topic, payload);
+    Serial.printf("Publishing temperature %s\n", payload);          
 }
 
 static void tmping_callback( TimerHandle_t xTimer ) {
     struct service_config const* sc = &scfg;
-    client.publish( sc->ping.topic, "timestamp");
-    printLocalTime();
-    Serial.println("Publishing timestamp");
+    char payload[32];
+    time_t now;
+    time(&now);
+    sprintf(payload, "%ld", now); 
+    client.publish( sc->ping.topic, payload );
+    Serial.printf("Publishing timestamp %s\n", payload);
+    
+    if( debug ) {
+        printLocalTime();
+    }
 }
 
 /*Funtion to convert byte* to char* */
@@ -119,7 +140,7 @@ static void byteToChar(char* dest, byte* src, int len) {
 }
 
 static void callback(char* topic, byte *payload, unsigned int length) {
-    enum { RELAY1 = 11, RELAY2 = 12 };
+
     
     char value[length+1];
     byteToChar(value, payload, length);
