@@ -5,37 +5,13 @@
 #include <PubSubClient.h>
 #include <HTTPClient.h>
 #include "config-mng.h"
+#include "mqtt_task.h"
 #include "SPIFFS.h"
 
 //##########################  configuration and variables  ##################
-//int status = WL_IDLE_STATUS;
-//unsigned long lastSend;
 
-//String wsid ;
-//String wpass;
-//String password ;
-//String static_ip ;
-//String myIP ;
 String LOCAL_IP ;
-//String apname ;
 String abc;
-
-
-//const char* s_data_file = "/ServiceData_jsonfile.txt";
-//String Service ;
-//String service_s ;
-//String host_ip ;
-//int port ;
-//int uinterval ;
-//String u_time;
-//String c_id ;
-
-//int QOS ; // 0
-//String U_name ;
-//String s_pass ;
-//String p_topic;
-//String Http_requestpath;
-
 String jsonwifis;
 AsyncWebServer server(80);
 static int scan = false;
@@ -79,7 +55,7 @@ void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip
 
 
 /** Funtion to convert a String yo ip struct passed by reference */
-static void stringToIp(struct ip* dest, String src) {
+void stringToIp(struct ip* dest, String src) {
     int i = 0;
     char* pch = strtok((char*)src.c_str(), ".");
     while (pch != NULL) {
@@ -185,7 +161,7 @@ void webserver_task( void * parameter ) {
         doc["wsid"] = cfg.wifi.ssid;
         
         //doc["localIP"] = LOCAL_IP;
-        doc["apname"] = cfg.ssid;
+        doc["apname"] = cfg.ap.ssid;
         //doc["s_pass"] = s_pass;
         
         String content;
@@ -195,18 +171,17 @@ void webserver_task( void * parameter ) {
     });
 
     server.on("/serviceData", HTTP_GET, [](AsyncWebServerRequest * request) {
-        DynamicJsonDocument doc(2048);
+        DynamicJsonDocument doc(1024*2);
         doc["host"]    = std::string( cfg.service.host_ip, strlen(cfg.service.host_ip));
         doc["port"]    = cfg.service.port;
         doc["id"]      = std::string(cfg.service.client_id, strlen(cfg.service.client_id));
-        doc["QOS"]     = cfg.service.qos;
         doc["user"]    = std::string(cfg.service.username, strlen(cfg.service.username));
         doc["pass"]    = std::string(cfg.service.password, strlen(cfg.service.password));  
         doc["temp_tp"] = std::string(cfg.service.temp.topic, strlen(cfg.service.temp.topic));
-        doc["temp_tm"] = cfg.service.temp.interval;
+        doc["temp_tm"] = cfg.service.temp.period;
         doc["temp_ud"] = std::string(cfg.service.temp.unit, strlen(cfg.service.temp.unit));
         doc["ping_tp"] = std::string(cfg.service.ping.topic, strlen(cfg.service.ping.topic));
-        doc["ping_tm"] = cfg.service.ping.interval;
+        doc["ping_tm"] = cfg.service.ping.period;
         doc["ping_ud"] = std::string(cfg.service.ping.unit, strlen(cfg.service.ping.unit));
         doc["rel1_tp"] = std::string(cfg.service.relay1.topic, strlen(cfg.service.relay1.topic));
         doc["rel2_tp"] = std::string(cfg.service.relay2.topic, strlen(cfg.service.relay2.topic));
@@ -255,20 +230,20 @@ void webserver_task( void * parameter ) {
 
         String txtssid = request->getParam("txtssid")->value();
         if (txtssid.length() > 0) {
-            strcpy(cfg.ssid, txtssid.c_str());
-            Serial.printf("WRITING AP SSID :: %s\n", cfg.ssid);
+            strcpy(cfg.ap.ssid, txtssid.c_str());
+            Serial.printf("WRITING AP SSID :: %s\n", cfg.ap.ssid);
         }
 
         String txtpass = request->getParam("txtpass")->value();
         if ( txtpass.length() > 0) {
-            strcpy(cfg.pass, txtpass.c_str());
-            Serial.printf("WRITING AP PASS :: %s\n", cfg.pass);
+            strcpy(cfg.ap.pass, txtpass.c_str());
+            Serial.printf("WRITING AP PASS :: %s\n", cfg.ap.pass);
         }
 
         String txtapip = request->getParam("txtaplan")->value();
         if ( txtapip.length() > 0) {
-            strcpy(cfg.apaddr , txtapip.c_str());
-            Serial.printf("WRITING AP IP :: %s\n", cfg.apaddr);
+            strcpy(cfg.ap.addr , txtapip.c_str());
+            Serial.printf("WRITING AP IP :: %s\n", cfg.ap.addr);
         }
         
         config_savecfg( );
@@ -365,7 +340,7 @@ void webserver_task( void * parameter ) {
         String parameters = request->getParam("parameters")->value();
         Serial.println(parameters);
         
-        const size_t capacity = JSON_OBJECT_SIZE(11) + 240;
+        const size_t capacity = JSON_OBJECT_SIZE(15) + 512;
         DynamicJsonDocument doc(capacity);
         auto error = deserializeJson(doc, parameters);
         JsonObject root = doc.as<JsonObject>();
@@ -385,9 +360,6 @@ void webserver_task( void * parameter ) {
         if (root.containsKey("id")) 
             strcpy(cfg.service.client_id, root["id"]);
 
-        if (root.containsKey("QOS")) 
-            cfg.service.qos = root["QOS"];
-
         if (root.containsKey("user")) 
             strcpy(cfg.service.username, root["user"]);
 
@@ -398,7 +370,7 @@ void webserver_task( void * parameter ) {
             strcpy(cfg.service.temp.topic, root["temp_tp"]);
         
         if (root.containsKey("temp_tm")) 
-            cfg.service.temp.interval = root["temp_tm"];
+            cfg.service.temp.period = root["temp_tm"];
 
         if (root.containsKey("temp_ud"))
             strcpy(cfg.service.temp.unit, root["temp_ud"]);
@@ -407,7 +379,7 @@ void webserver_task( void * parameter ) {
             strcpy(cfg.service.ping.topic, root["ping_tp"]);
         
         if (root.containsKey("ping_tm")) 
-            cfg.service.ping.interval = root["ping_tm"];
+            cfg.service.ping.period = root["ping_tm"];
 
         if (root.containsKey("ping_ud"))
             strcpy(cfg.service.ping.unit, root["ping_ud"]);
@@ -422,19 +394,18 @@ void webserver_task( void * parameter ) {
             strcpy(cfg.service.enableTemp.topic, root["en_tp"]);
 
         config_savecfg( );
-
+        updateServiceCfg( );
 
         Serial.printf("WRITING HOST IP :: %s\n", cfg.service.host_ip);
         Serial.printf("WRITING PORT :: %d\n", cfg.service.port);
         Serial.printf("WRITING CLIENT_ID :: %s\n", cfg.service.client_id);
-        Serial.printf("WRITING QOS :: %d\n", cfg.service.qos);
         Serial.printf("WRITING USER :: %s\n", cfg.service.username);
         Serial.printf("WRITING PASS :: %s\n", cfg.service.password);
         Serial.printf("WRITING TEMP_TOPIC :: %s\n", cfg.service.temp.topic);
-        Serial.printf("WRITING TEMP_INTER :: %d\n", cfg.service.temp.interval);
+        Serial.printf("WRITING TEMP_INTER :: %d\n", cfg.service.temp.period);
         Serial.printf("WRITING TEMP_UND :: %s\n", cfg.service.temp.unit);
         Serial.printf("WRITING PING_TOPIC :: %s\n", cfg.service.ping.topic);
-        Serial.printf("WRITING PING_INTER :: %d\n", cfg.service.ping.interval);
+        Serial.printf("WRITING PING_INTER :: %d\n", cfg.service.ping.period);
         Serial.printf("WRITING PING_UND :: %s\n", cfg.service.ping.unit);
         Serial.printf("WRITING REL1_TOPIC :: %s\n", cfg.service.relay1.topic);
         Serial.printf("WRITING REL2_TOPIC :: %s\n", cfg.service.relay2.topic);
@@ -442,6 +413,51 @@ void webserver_task( void * parameter ) {
         
         request->send(200, "text/plain", "ok");
     });
+
+    
+    server.on("/ntpData", HTTP_GET, [](AsyncWebServerRequest * request) {
+        DynamicJsonDocument doc(128);
+        doc["host"]    = std::string( cfg.ntp.host, strlen(cfg.ntp.host) );
+        doc["port"]    = cfg.ntp.port;
+
+        String content;
+        serializeJson(doc, content);
+        Serial.println(content);
+        request->send(200, "application/json", content);
+    });
+
+    //############################### RECEIVING DATA SEND MMETHODS HTTP-MQTT-TCP ##############################
+    server.on("/applyNtp", HTTP_GET, [] (AsyncWebServerRequest * request) {
+        String parameters = request->getParam("parameters")->value();
+        Serial.println(parameters);
+        
+        const size_t capacity = JSON_OBJECT_SIZE(15) + 128;
+        DynamicJsonDocument doc(capacity);
+        auto error = deserializeJson(doc, parameters);
+        JsonObject root = doc.as<JsonObject>();
+        if (error) {
+            Serial.println("parseObject() failed");
+            return;
+        }
+
+        memset( &cfg.ntp, 0, sizeof( cfg.ntp ) );
+        if (root.containsKey("host")) 
+            strcpy(cfg.ntp.host, root["host"]);
+
+        if (root.containsKey("port")) 
+            cfg.ntp.port = root["port"];
+        
+        config_savecfg( );
+        //updateServiceCfg( );
+        Serial.printf("WRITING HOST IP :: %s\n", cfg.ntp.host);
+        Serial.printf("WRITING PORT :: %d\n", cfg.ntp.port);
+
+        request->send(200, "text/plain", "ok");
+    });
+
+
+
+
 
     server.begin();
 

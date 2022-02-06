@@ -7,4 +7,6 @@ void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip
 
 void printIp(struct ip* src);
 
+void stringToIp(struct ip* dest, String src);
+
 #endif //__LIGHT_CTRL__

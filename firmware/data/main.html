@@ -162,9 +162,32 @@
             </div>
 
             <div id=service class="tab-pane fade">                
+                
                 <div class=form-group>
                     <div class=row>
-                        <div class=col-md-8> <label>Host IP/ Address</label>
+                        <div class=col-md-8> <label>NTP server address</label>
+                            <input type=text id="hntp" class=form-control placeholder="NTP Address">
+                        </div>
+                        <div class=col-md-4><label>Port</label>
+                            <input type=text id="pntp" class=form-control placeholder="1883" value=""> </div>
+                    </div>
+                </div>
+
+                <div class=form-group>
+                    <div class=row>
+                        <div class=col-md-12>
+                            <div class=text-center>
+                                <button class="btn btn-block" type="button" id="ntp_btn" title=Apply>Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                
+                <div class=form-group>
+                    <div class=row>
+                        <div class=col-md-8> <label>MQTT broker address</label>
                             <input type=text id="hipadd" class=form-control placeholder="Mqtt Broker Address">
                         </div>
                         <div class=col-md-4><label>Port</label>
@@ -176,15 +199,6 @@
                     <input type=text id="c_id" class=form-control placeholder="Client ID">
                 </div>
 
-                <div class=form-group>
-                    <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Qos</label>
-                    <select class="mdb-select form-control" id="QOS">
-                        <option value=1>0</option>
-                        <option value=2>1</option>
-                        <option value=3>2</option>
-
-                    </select>
-                </div>
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Username</label>
                     <input type=text id="U_name" class=form-control placeholder=Username> </div>
@@ -206,9 +220,9 @@
                             <input type=text id="interval_temp" class=form-control placeholder="number"> </div>
                         <div class=col-md-8>
                             <select class="mdb-select form-control" id="u_interval_temp">
-                                <option value=2>Second</option>
-                                <option value=3>Minute</option>
-                                <option value=4>Hour</option>
+                                <option value=1>Second</option>
+                                <option value=2>Minute</option>
+                                <option value=3>Hour</option>
                             </select>
                         </div>
                     </div>
@@ -226,9 +240,9 @@
                             <input type=text id="interval_ping" class=form-control placeholder="number"> </div>
                         <div class=col-md-8>
                             <select class="mdb-select form-control" id="u_interval_ping">
-                                <option value=2>Second</option>
-                                <option value=3>Minute</option>
-                                <option value=4>Hour</option>
+                                <option value=1>Second</option>
+                                <option value=2>Minute</option>
+                                <option value=3>Hour</option>
                             </select>
                         </div>
                     </div>
@@ -350,21 +364,15 @@
                     });
 
                     $(document).on("click", "#scan_wifi", function () {
-                        var scan_wifi = $("#scan_wifi").val();
-                        $.get("/scan_wifi?scan_wifi=" + scan_wifi).done(function (response) {
-                            console.log(response)
-                            if (response.length > 0) {
-                                var html = "";
-                                for (var item of response) {
-                                    html = html + " <option value=" + item.ssid + ">" + item.ssid + "</option>";
-                                }
-                                $("#drpWLAN").html(html);
-                            }
-                        });
+                        scanWifi();
                     });
 
                     $(document).on("click", "#service_btn", function () {
                         getServiceData();
+                    });
+
+                    $(document).on("click", "#ntp_btn", function () {
+                        getNtpData();
                     });
 
                     $(document).on("click", "#con_btn", function () {
@@ -372,11 +380,13 @@
                     });
 
                     $(document).on('click', '#liService', function () {
+                        setNtpData();
                         setServiceData();
                     });
 
                     $(document).on('click', '#liNetwork', function () {
                         setNetwork();
+                        scanWifi();
                     });
 
                     $(document).on("click", "#reboot_btn", function () {
@@ -398,21 +408,63 @@
                     });
                 }
 
+                function scanWifi() {
+                    var scan_wifi = $("#scan_wifi").val();
+                        $.get("/scan_wifi?scan_wifi=" + scan_wifi).done(function (response) {
+                            console.log(response)
+                            if (response.length > 0) {
+                                var html = "";
+                                for (var item of response) {
+                                    html = html + " <option value=" + item.ssid + ">" + item.ssid + "</option>";
+                                }
+                                $("#drpWLAN").html(html);
+                            }
+                    });
+                }
+
+                function getServiceData() {
+                    parameters = "{\"host\":\""        + $("#hipadd").val()                         + "\","
+                                    + "\"port\":"      + $("#port").val()                           + ","
+                                    + "\"id\":\""      + $("#c_id").val()                           + "\","
+                                    + "\"user\":\""    + $("#U_name").val()                         + "\","
+                                    + "\"pass\":\""    + $("#s_pass").val()                         + "\","
+                                    + "\"temp_tp\":\"" + $("#pub_topic_temp").val()                 + "\","
+                                    + "\"temp_tm\":"   + $("#interval_temp").val()                  + ","
+                                    + "\"temp_ud\":\"" + $("#u_interval_temp :selected").text()     + "\","
+                                    + "\"ping_tp\":\"" + $("#pub_topic_ping").val()                 + "\","
+                                    + "\"ping_tm\":"   + $("#interval_ping").val()                  + ","
+                                    + "\"ping_ud\":\"" + $("#u_interval_ping :selected").text()     + "\","
+                                    + "\"rel1_tp\":\"" + $("#sub_topic_rel1").val()                 + "\","
+                                    + "\"rel2_tp\":\"" + $("#sub_topic_rel2").val()                 + "\","
+                                    + "\"en_tp\":\""   + $("#sub_topic_en").val()                   + "\""
+                                + "}";
+
+                    if ($("#hipadd").val() == "" || $("#port").val() == "") {
+                        alert("Host,Port can't be empty");
+                    } 
+                    else {
+                        $.get("/applyServiceFunction?parameters=" + parameters).done( function (response) {
+                            if (response == "ok") {
+                                alert("please reboot device to apply changes");
+                            }
+                        });
+                    }
+                }
+
                 function setServiceData() {
                     $.get("/serviceData").done( function(response){ 
                         if( response ) {
                             $("#hipadd").val(response.host);
                             $("#port").val(response.port);
                             $("#c_id").val(response.id);
-                            $("#QOS :selected").text(response.topic);
                             $("#U_name").val(response.user);
                             $("#s_pass").val(response.pass);
                             $("#pub_topic_temp").val(response.temp_tp);
                             $("#interval_temp").val(response.temp_tm);
-                            $("#u_interval_temp :selected").text(response.temp_ud)
+                            $("#u_interval_temp :selected").val(response.temp_ud)
                             $("#pub_topic_ping").val(response.ping_tp);
                             $("#interval_ping").val(response.ping_tm);
-                            $("#u_interval_ping :selected").text(response.ping_ud)
+                            $("#u_interval_ping :selected").val(response.ping_ud)
                             $("#sub_topic_rel1").val(response.rel1_tp);
                             $("#sub_topic_rel2").val(response.rel2_tp);
                             $("#sub_topic_en").val(response.en_tp);
@@ -426,19 +478,21 @@
                 function getNetWork() {
                     var wifi_ssid = $("#drpWLAN :selected").text();
                     var wifi_pass = $("#wifi_pass").val();
-                    var wifi_MODE = $("#wifi_MODE :selected").text();
-                    var txtipadd = $("#txtipadd").val();
-                    var net_m = $("#net_m").val();
-                    var G_add = $("#G_add").val();
-                    var P_dns = $("#P_dns").val();
-                    var S_dns = $("#S_dns").val();
-                    var urldata = "";
 
-                    if (wifi_MODE == "static") {
-                        urldata = "wifi_ssid=" + wifi_ssid + "&wifi_pass=" + wifi_pass + "&wifi_MODE=" + wifi_MODE + "&txtipadd=" + txtipadd + "&net_m=" + net_m + "&G_add=" + G_add + "&P_dns=" + P_dns + "&S_dns=" + S_dns;
+                    if ( wifi_MODE == "static" ) {
+                        urldata = "wifi_ssid="  + wifi_ssid 
+                                + "&wifi_pass=" + wifi_pass 
+                                + "&wifi_MODE=" + $("#wifi_MODE :selected").text() 
+                                + "&txtipadd="  + $("#txtipadd").val() 
+                                + "&net_m="     + $("#net_m").val() 
+                                + "&G_add="     + $("#G_add").val() 
+                                + "&P_dns="     + $("#P_dns").val() 
+                                + "&S_dns="     + $("#S_dns").val();
                     }
                     else {
-                        urldata = "wifi_ssid=" + wifi_ssid + "&wifi_pass=" + wifi_pass + "&wifi_MODE=" + wifi_MODE;
+                        urldata = "wifi_ssid="  + wifi_ssid 
+                                + "&wifi_pass=" + wifi_pass 
+                                + "&wifi_MODE=" + $("#wifi_MODE :selected").text();
                     }
 
                     if (wifi_ssid == "" || wifi_pass == "") {
@@ -468,6 +522,35 @@
                         }
                     });
                 }
+                
+                function getNtpData() {
+                    parameters = "{\"host\":\""        + $("#hntp").val()       + "\","
+                                    + "\"port\":"      + $("#pntp").val()                           
+                                    + "}";
+
+                    if ($("#host").val() == "" || $("#port").val() == "") {
+                        alert("Host,Port can't be empty");
+                    } 
+                    else {
+                        $.get("/applyNtp?parameters=" + parameters).done( function (response) {
+                            if (response == "ok") {
+                                alert("please reboot device to apply changes");
+                            }
+                        });
+                    }
+                }
+
+                function setNtpData() {
+                    $.get("/ntpData").done( function(response){ 
+                        if( response ) {
+                            $("#hntp").val(response.host);
+                            $("#pntp").val(response.port);
+                        }
+                        else {
+                            console.log("response empty");
+                        }
+                    });
+                }
 
                 function Gateway_passFunction() {
                     var x = document.getElementById("txtpass");
@@ -489,35 +572,7 @@
                     }
                 }
 
-                function getServiceData() {
-                    parameters = "{\"host\":\""        + $("#hipadd").val()                         + "\","
-                                    + "\"port\":"      + $("#port").val()                           + ","
-                                    + "\"id\":\""      + $("#c_id").val()                           + "\","
-                                    + "\"QOS\":"       + $("#QOS :selected").text()                 + ","
-                                    + "\"user\":\""    + $("#U_name").val()                         + "\","
-                                    + "\"pass\":\""    + $("#s_pass").val()                         + "\","
-                                    + "\"temp_tp\":\"" + $("#pub_topic_temp").val()                 + "\","
-                                    + "\"temp_tm\":"   + $("#interval_temp").val()                  + ","
-                                    + "\"temp_ud\":\"" + $("#u_interval_temp :selected").text()     + "\","
-                                    + "\"ping_tp\":\"" + $("#pub_topic_ping").val()                 + "\","
-                                    + "\"ping_tm\":"   + $("#interval_ping").val()                  + ","
-                                    + "\"ping_ud\":\"" + $("#u_interval_ping :selected").text()     + "\","
-                                    + "\"rel1_tp\":\"" + $("#sub_topic_rel1").val()                 + "\","
-                                    + "\"rel2_tp\":\"" + $("#sub_topic_rel2").val()                 + "\","
-                                    + "\"en_tp\":\""   + $("#sub_topic_en").val()                   + "\""
-                                + "}";
 
-                    if ($("#hipadd").val() == "" || $("#port").val() == "") {
-                        alert("Host,Port can't be empty");
-                    } 
-                    else {
-                        $.get("/applyServiceFunction?parameters=" + parameters).done( function (response) {
-                            if (response == "ok") {
-                                alert("please reboot device to apply changes");
-                            }
-                        });
-                    }
-                }
 
             </script>
 

@@ -30,7 +30,7 @@ enum time_unit{
 
 struct pub_topic {
     char topic[64];
-    int32_t interval; /* in seconds */
+    int32_t period; /* in seconds */
     char unit[16];
 };
 
@@ -49,27 +49,36 @@ struct wifi_config {
     struct ip secondaryDNS;
 };
 
-/** Create a structure to hold the configuration data. */
-struct config  {
+struct ntp_config {
+    char host[APADDR_SIZE];
+    int  port;
+};
+
+struct service_config {
+    char host_ip[SSID_SIZE];
+    uint16_t port;
+    char client_id[64];
+    char username[32];
+    char password[32];
+    struct pub_topic temp;
+    struct pub_topic ping;
+    struct sub_topic relay1;
+    struct sub_topic relay2;
+    struct sub_topic enableTemp;
+};
+
+struct ap_config {
     char ssid[SSID_SIZE];
     char pass[PASS_SIZE];
-    char apaddr[APADDR_SIZE];
+    char addr[APADDR_SIZE];
+};
 
+/** Create a structure to hold the configuration data. */
+struct config  {
+    struct ap_config ap;
     struct wifi_config wifi;
-
-    struct service_config {
-        char host_ip[SSID_SIZE];
-        uint16_t port;
-        char client_id[64];
-        char username[32];
-        char password[32];
-        struct pub_topic temp;
-        struct pub_topic ping;
-        struct sub_topic relay1;
-        struct sub_topic relay2;
-        struct sub_topic enableTemp;
-        uint8_t qos;
-    } service;
+    struct service_config  service;
+    struct ntp_config ntp;
 };
 
 

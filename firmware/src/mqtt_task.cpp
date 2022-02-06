@@ -7,57 +7,81 @@
 #include "webserver.h"
 #include "config-mng.h"
 #include "mqtt_task.h"
+#include "time.h"
 
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
 
 int status = WL_IDLE_STATUS;
-String wsid ;
-String wpass;
-//String password ;
-//String static_ip ;
-String myIP ;
-static String LOCAL_IP ;
-//String apname ;
 
-String U_name ;
-String c_id ;
-String s_pass ;
+    /* An array of StaticTimer_t structures, which are used to store
+    the state of each created timer. */
+StaticTimer_t xTimerBuffers[ 2 ];  
 
-String host_ip ;
-int port ;
+/*Create a static freertos timer*/
+static TimerHandle_t tmTemp;
+static TimerHandle_t tmPing;
 
-unsigned long lastSend;
-String p_topic;
-String Service ;
-String service_s ;
+/* Declare a variable to hold the created event group. */
+static EventGroupHandle_t events;
+static struct service_config scfg;
+enum flags {
+    START_AP_WIFI = 1 << 0,
+    CONNECT_WIFI  = 1 << 1,
+    CONNECT_MQTT  = 1 << 2,
+};
+
+static void printLocalTime(){
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)){
+        Serial.println("Failed to obtain time");
+        return;
+    }
+    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+    Serial.print("Day of week: ");
+    Serial.println(&timeinfo, "%A");
+    Serial.print("Month: ");
+    Serial.println(&timeinfo, "%B");
+    Serial.print("Day of Month: ");
+    Serial.println(&timeinfo, "%d");
+    Serial.print("Year: ");
+    Serial.println(&timeinfo, "%Y");
+    Serial.print("Hour: ");
+    Serial.println(&timeinfo, "%H");
+    Serial.print("Hour (12 hour format): ");
+    Serial.println(&timeinfo, "%I");
+    Serial.print("Minute: ");
+    Serial.println(&timeinfo, "%M");
+    Serial.print("Second: ");
+    Serial.println(&timeinfo, "%S");
+
+    Serial.println("Time variables");
+    char timeHour[3];
+    strftime(timeHour,3, "%H", &timeinfo);
+    Serial.println(timeHour);
+    char timeWeekDay[10];
+    strftime(timeWeekDay,10, "%A", &timeinfo);
+    Serial.println(timeWeekDay);
+    Serial.println();
+}
+
 
 static void reconnect() {
     // Loop until we're reconnected
     while (!client.connected()) {
         status = WiFi.status();
         if ( status != WL_CONNECTED) {
-            WiFi.begin(wsid.c_str(), wpass.c_str());
+            WiFi.begin( cfg.wifi.ssid, cfg.wifi.pass);
             while (WiFi.status() != WL_CONNECTED) {
                 delay(500);
                 Serial.print(".");
             }
             Serial.println("Connected to AP");
         }
-        Serial.print("Connecting to ThingsBoard node ...");
-        // Attempt to connect (clientId, username, password)
-        //,U_name.c_str(), s_pass.c_str()
+        Serial.print("Connecting broker ...");
 
-        const char* cuname = NULL;
-        if (U_name != "") {
-            cuname  = U_name.c_str();
-        }
-        const char* cpass = NULL;
-        if (s_pass != "") {
-            cpass = s_pass.c_str();
-        }
 
-        if (client.connect(c_id.c_str(), cuname, cpass)) {
+        if (client.connect( cfg.service.client_id, cfg.service.username, cfg.service.password )) {
             Serial.println( "[DONE]" );
         } 
         else {
@@ -71,188 +95,255 @@ static void reconnect() {
 }
 
 //####################################### testing wifi connection function ############################
-bool testWifi(void) {
-    int c = 0;
+
+
+static void tmtemp_callback( TimerHandle_t xTimer ) {
+    struct service_config const* sc = &scfg;
+    client.publish( sc->temp.topic, "temperature");
+    Serial.println("Publishing temperature");          
+}
+
+static void tmping_callback( TimerHandle_t xTimer ) {
+    struct service_config const* sc = &scfg;
+    client.publish( sc->ping.topic, "timestamp");
+    printLocalTime();
+    Serial.println("Publishing timestamp");
+}
+
+/*Funtion to convert byte* to char* */
+static void byteToChar(char* dest, byte* src, int len) {
+    for (int i = 0; i < len; i++) {
+        dest[i] = src[i];
+    }
+    dest[len] = '\0';
+}
+
+static void callback(char* topic, byte *payload, unsigned int length) {
+    enum { RELAY1 = 11, RELAY2 = 12 };
+    
+    char value[length+1];
+    byteToChar(value, payload, length);
+    Serial.printf("Topic: %s, value: %s\n", topic, value);
+    
+    struct service_config const* sc = &scfg;
+    if( strcmp(sc->relay1.topic , topic) == 0 ) { 
+        digitalWrite(RELAY1, strcmp( value, "ON") == 0 ? HIGH : LOW);
+    }
+    else if( strcmp(sc->relay2.topic, topic) == 0 ) {
+        digitalWrite(RELAY2, strcmp( value, "ON") == 0 ? HIGH : LOW);
+    }
+    else if( strcmp(sc->enableTemp.topic, topic) == 0 ) {
+        strcmp( value, "ON") == 0 ? 
+            xTimerStart(tmTemp, pdMS_TO_TICKS(10)) : xTimerStop(tmTemp, pdMS_TO_TICKS(10));
+    }
+    else{
+        Serial.println("unknown topic");
+    }
+}
+
+static bool testWifi( void ) {
+    int tries = 0;
     Serial.println("Waiting for Wifi to connect");
-    while ( c < 30 ) {
-        if (WiFi.status() == WL_CONNECTED) {
+    while ( tries < 30 ) {
+        if ( WiFi.status() == WL_CONNECTED ) {
             return true;
         }
         delay(500);
-        Serial.print(WiFi.status());
+        Serial.print( WiFi.status() );
         Serial.print(".");
-        c++;
+        ++tries;
     }
-    Serial.println("");
-    Serial.println("Connect timed out, opening AP");
-    LOCAL_IP = "Not Connected";
-    WiFi.mode(WIFI_AP);
-    return false;
+return false;
 }
 
-
-void mqtt_task( void * parameter ) {
-
-    WiFi.mode(WIFI_AP_STA);
-
-    Serial.printf("Set up access point. SSID: %s, PASS: %s\n", cfg.ssid, cfg.pass);
-    WiFi.softAP( cfg.ssid, cfg.pass);
-    vTaskDelay( pdMS_TO_TICKS(800) );
-
-    Serial.printf("Access point ADDRESS: %s\n", cfg.apaddr);
-    String eap = cfg.apaddr;
-    String ip1, ip2, ip3, ip4;
-    ipAdress(eap, ip1, ip2, ip3, ip4);
-    IPAddress Ip(ip1.toInt(), ip2.toInt(), ip3.toInt(), ip4.toInt());
-    IPAddress NMask(255, 255, 0, 0);
-
-Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
-
-    WiFi.softAPConfig(Ip, Ip, NMask );
-    myIP = WiFi.softAPIP().toString();
-    
-    //################################   WiFi settings Read   #####################################
-    struct wifi_config* wf = &cfg.wifi;
-
+static void printWifiCfg( struct wifi_config* wf) {
     Serial.printf("\nWifi SSID: %s\n", wf->ssid );
     Serial.printf("Wifi PASSword: %s\n", wf->pass );
     Serial.printf("WI-FI_MODE: %s\n", wf->mode );
-    
-#warning TOBE delete
-    if (wsid == NULL) {
-        wsid = "Not Given";
-        LOCAL_IP = "network not set";
-    }
-
-
-    //####################################### MODE CHECKING(DHCP-STATIC) AND WIFI BEGIN #######################################
-    if ( strcmp( wf->mode, "dhcp" ) == 0 ) {
-        WiFi.begin( wf->ssid, wf->pass );
-        vTaskDelay( pdMS_TO_TICKS( 4000 ) );
-        if ( testWifi() ) {
-            Serial.print( WiFi.status());
-            Serial.println("YOU ARE CONNECTED");
-            LOCAL_IP = WiFi.localIP().toString();
-            Serial.println(LOCAL_IP);
-        }
-    }
 
     if ( strcmp( wf->mode, "static") == 0 ) {
-        
         printIp( &wf->ip );
         printIp( &wf->gateway );
         printIp( &wf->netmask );
         printIp( &wf->primaryDNS );
         printIp( &wf->secondaryDNS );
-        
-        IPAddress S_IP( wf->ip.ip[0], wf->ip.ip[1], wf->ip.ip[2], wf->ip.ip[3] );
-        IPAddress gateway( wf->gateway.ip[0], wf->gateway.ip[1], wf->gateway.ip[2], wf->gateway.ip[3] );
-        IPAddress subnet( wf->netmask.ip[0], wf->netmask.ip[1], wf->netmask.ip[2], wf->netmask.ip[3] );
-        IPAddress primaryDNS( wf->primaryDNS.ip[0], wf->primaryDNS.ip[1], wf->primaryDNS.ip[2], wf->primaryDNS.ip[3] ); //optional
-        IPAddress secondaryDNS( wf->secondaryDNS.ip[0], wf->secondaryDNS.ip[1], wf->secondaryDNS.ip[2], wf->secondaryDNS.ip[3] ); //optional
+    }
+                
+}
 
-        if (!WiFi.config(S_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
-            Serial.println("STA Failed to configure");
-        }
+void updateServiceCfg( void ) {
+    xEventGroupSetBits( events,   CONNECT_MQTT );
+}
 
-        WiFi.begin( cfg.wifi.ssid, cfg.wifi.pass );
-        vTaskDelay( pdMS_TO_TICKS( 4000 ) );
+static int getupdatePeriod( struct pub_topic const* tp ) {
+    struct { char const* unit; int factor; } const units[] = {
+        { "Second", 1 * 1000 },
+        { "Minute", 60 * 1000 },
+        { "Hour", 60 * 60 * 1000}
+    };
 
-        if (testWifi()) {
-            Serial.print(WiFi.status());
-            Serial.println("YOU ARE CONNECTED");
-            LOCAL_IP = WiFi.localIP().toString();
-            Serial.println(LOCAL_IP);
+    for( int i = 0; i < sizeof(units)/sizeof(units[0]); ++i ) {
+        if ( strcmp( tp->unit, units[i].unit ) == 0 ) {
+            return tp->period * units[i].factor;
         }
     }
+    return -1;
+}
 
 
-    const char* mqttServer = "hairdresser.cloudmqtt.com";
-    const int mqttPort =  	15529;
-    const char* mqttUser = "eebnnvje";
-    const char* mqttPassword = "zuZaQe403XZD";
-    client.setServer(mqttServer, mqttPort);
+
+void mqtt_task( void * parameter ) {
 
 
+    
+    tmTemp = xTimerCreateStatic( "temperature", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmtemp_callback, &xTimerBuffers[0] );
+    tmPing = xTimerCreateStatic( "ping", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmping_callback, &xTimerBuffers[1] );
+
+    /* Attempt to create the event group. */
+    events = xEventGroupCreate();
+    EventBits_t bitfied = xEventGroupSetBits( events, START_AP_WIFI | CONNECT_WIFI );
+    
 
     for(;;){ // infinite loop
-        //if (WiFi.status() == WL_CONNECTED) {
-        if(0) {
-        // Loop until we're reconnected
         
-            while (!client.connected()) {
-                Serial.print("Attempting MQTT connection...");
-                // Create a random client ID
-                String clientId = "ESP32Client-ABCD";
-                //clientId += String(random(0xffff), HEX);
-                // Attempt to connect
-                if (client.connect(clientId.c_str(),mqttUser,mqttPassword)) {
-                    Serial.println("connected");
-                    //Once connected, publish an announcement...
-                    client.publish("/esp/test", "hello world");
-                    // ... and resubscribe
-                    //client.subscribe(MQTT_SERIAL_RECEIVER_CH);
-                } else {
-                    Serial.print("failed, rc=");
-                    Serial.print(client.state());
-                    Serial.println(" try again in 5 seconds");
-                // Wait 5 seconds before retrying
-                //delay(5000);
-                vTaskDelay( pdMS_TO_TICKS(5000) );
+        
+        bitfied = xEventGroupGetBits( events );
+
+        if( bitfied & START_AP_WIFI ) {
+            
+            struct ap_config* ap = &cfg.ap;
+            struct ip addr;
+            stringToIp( &addr, ap->addr );    
+            IPAddress Ip(addr.ip[0], addr.ip[1], addr.ip[2], addr.ip[3]);
+            IPAddress NMask(255, 255, 0, 0);
+
+            WiFi.mode(WIFI_AP_STA);
+            WiFi.softAP( ap->ssid, ap->pass);
+            WiFi.softAPConfig(Ip, Ip, NMask );
+            vTaskDelay( pdMS_TO_TICKS(800) );
+            
+            String myIP = WiFi.softAPIP().toString();
+            Serial.printf("Set up access point. SSID: %s, PASS: %s\n", ap->ssid, ap->pass);
+            Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
+            Serial.printf("Access point ADDRESS: %s\n", ap->addr);
+
+            xEventGroupClearBits( events, START_AP_WIFI );
+
+        }
+
+        if( bitfied & CONNECT_WIFI ) {
+            
+            struct wifi_config* wf = &cfg.wifi;
+            
+            if( (wf->ssid[0] == 0 ) || wf->mode[0] == 0 ) {
+                Serial.println("No wifi config found");
+                vTaskDelay( pdMS_TO_TICKS(10000) );
+                xEventGroupClearBits( events, CONNECT_WIFI );
+                continue;
+            }
+            
+            if ( strcmp( wf->mode, "static") == 0 ) {
+                IPAddress addr( wf->ip.ip[0], wf->ip.ip[1], wf->ip.ip[2], wf->ip.ip[3] );
+                IPAddress gateway( wf->gateway.ip[0], wf->gateway.ip[1], wf->gateway.ip[2], wf->gateway.ip[3] );
+                IPAddress subnet( wf->netmask.ip[0], wf->netmask.ip[1], wf->netmask.ip[2], wf->netmask.ip[3] );
+                IPAddress primaryDNS( wf->primaryDNS.ip[0], wf->primaryDNS.ip[1], wf->primaryDNS.ip[2], wf->primaryDNS.ip[3] ); //optional
+                IPAddress secondaryDNS( wf->secondaryDNS.ip[0], wf->secondaryDNS.ip[1], wf->secondaryDNS.ip[2], wf->secondaryDNS.ip[3] ); //optional
+                if (!WiFi.config( addr, gateway, subnet, primaryDNS, secondaryDNS)) {
+                    Serial.println("STA Failed to configure");
                 }
-            
             }
-        
+            
+            printWifiCfg( wf );
+            WiFi.begin( wf->ssid, wf->pass );
+            if ( !testWifi() ) {
+                Serial.println("Wifi connection failed");
+                continue;
+            }
+            
+            WiFi.mode(WIFI_STA);
+            Serial.printf("Connected to %s, IP: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str() );            
+            xEventGroupSetBits( events,   CONNECT_MQTT );
+            xEventGroupClearBits( events, CONNECT_WIFI );
         }
 
-        vTaskDelay( pdMS_TO_TICKS(5000) );
-        
-        if (0) {    
-            /*Connect to MQTT broker*/
-            if (client.connect(cfg.service.client_id, cfg.service.username, cfg.service.password)) {
-                Serial.println("MQTT Connected");
-                //client.subscribe(cfg.service.temp.topic);
-                //client.subscribe(cfg.service.ping.topic);
-                client.subscribe(cfg.service.relay1.topic);
-                client.subscribe(cfg.service.relay2.topic);
-                client.subscribe(cfg.service.enableTemp.topic);
+        if( bitfied & CONNECT_MQTT ) {
+            memcpy( &scfg, &cfg.service, sizeof(cfg.service) );
+            
+            if( scfg.host_ip[0] == 0 || scfg.client_id == 0 ) {
+                Serial.println("No mqtt config found");
+                vTaskDelay( pdMS_TO_TICKS(10000) );
+                xEventGroupClearBits( events, CONNECT_MQTT );
+                continue;
             }
+            
+            client.setServer( scfg.host_ip, scfg.port);
+            client.setCallback(callback);
+            
+            Serial.print("Attempting MQTT connection...");
+            // Attempt to connect
+            if ( client.connect( scfg.client_id, scfg.username, scfg.password ) ) {
+                Serial.println("connected");
+                
+                //Once connected, publish an announcement...
+                client.publish( scfg.temp.topic, "temperature");
+                client.publish( scfg.ping.topic, "timestamp");
+                
+                client.subscribe( scfg.relay1.topic);
+                client.subscribe( scfg.relay2.topic);
+                client.subscribe( scfg.enableTemp.topic);
+
+                Serial.printf("Subscribed to: %s\n, %s\n, %s\n", 
+                    scfg.relay1.topic, scfg.relay2.topic, scfg.enableTemp.topic );
+                
+                if( xTimerChangePeriod( tmTemp, pdMS_TO_TICKS( getupdatePeriod( &scfg.temp )), 100 ) != pdPASS ) {
+                    Serial.println("Failed to change period");
+                    continue;
+                }
+                else {
+                    if( xTimerStop( tmPing, 0 ) != pdPASS ) {
+                        Serial.println("Failed to stop ping timer");
+                        continue;
+                    }
+                }
+
+                if( xTimerChangePeriod( tmPing, pdMS_TO_TICKS( getupdatePeriod( &scfg.ping )), 100 ) != pdPASS ) {
+                    Serial.println("Failed to change period");
+                    continue;
+                }
+                else {
+                    if( xTimerStart( tmPing, 0 ) != pdPASS ) {
+                        Serial.println("Failed to start timer 2");
+                        continue;
+                    }
+                }
+
+            } 
             else {
-                Serial.println("MQTT Connection failed");
+                Serial.printf("failed, rc= %d %s\n", client.state(), "try again in 5 seconds");
+                // Wait 5 seconds before retrying
+                vTaskDelay( pdMS_TO_TICKS(5000) );
+                continue;
             }
             
-            
-            
-            client.setServer(host_ip.c_str(), port );
-            if ( !client.connected() ) {
-                reconnect();
-            }
-
-            if ( millis() - lastSend > 1000 ) { // Update and send only after 1 seconds
-                String payload = "{";
-                payload += "\"temperature2\":"; payload += 0000; payload += ",";
-                payload += "\"humidity2\":"; payload += 9999;
-                payload += "}";
-
-                char attributes[800];
-                payload.toCharArray(attributes, 800 );
-                client.publish(p_topic.c_str(), attributes );
-                Serial.println( attributes );
-                Serial.println("Data sent successfully");
-                //        lastSend = millis();
-                service_s = "MQTT(CONNECTED)";
-            }
-            lastSend = millis();
-            client.loop();
-
-            
+            // Init and get the time
+            const long  gmtOffset_sec = 0;
+            const int   daylightOffset_sec = 3600;
+            configTime(gmtOffset_sec, daylightOffset_sec, cfg.ntp.host);
+            xEventGroupClearBits( events, CONNECT_MQTT );
         }
         
-
-
-
+        if( ( WiFi.status() != WL_CONNECTED ) ) {
+            xEventGroupSetBits( events, CONNECT_WIFI );
+            continue;
+        }
+        
+        //if ( !client.connected() ) {
+        //    reconnect();
+        //}
+        
+        client.loop();
+        vTaskDelay( pdMS_TO_TICKS(250) );
     }
-
 }
 
 

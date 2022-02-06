@@ -14,7 +14,8 @@ static int const cfgaddr = 0;
 
 static void setdefault( struct config* cfg ) { 
     memset( cfg, 0 , sizeof( struct config));
-    strcpy(cfg->wifi.mode, "dhcp");
+    strcpy( cfg->wifi.mode, "dhcp" );
+    strcpy( cfg->ntp.host, "pool.ntp.org");
 }
 
 void config_setdefault( void ) { 

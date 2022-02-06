@@ -25,13 +25,15 @@ static void loadConfig( void ) {
         Serial.print(abc);
     }
 
+
     //@@@@@@@@@@@@@@@@@@@@@@@@@@@  EEPROM read FOR SSID-PASSWORD- ACCESS POINT IP @@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    Serial.printf("Access point SSID: %s\n", cfg.ssid);
-    Serial.printf("Access point PASSWORD: %s\n", cfg.pass);
-    Serial.printf("Access point ADDRESS: %s\n", cfg.apaddr);
+    struct ap_config* ap = &cfg.ap;
+    Serial.printf("Access point SSID: %s\n", ap->ssid);
+    Serial.printf("Access point PASSWORD: %s\n", ap->pass);
+    Serial.printf("Access point ADDRESS: %s\n", ap->addr);
     
     //##############################   ACESS POINT begin on given credential #################################
-    if ( (cfg.ssid[0] == 0 ) || (cfg.pass[0] == 0) || cfg.apaddr[0] == 0 ) {
+    if ( (ap->ssid[0] == 0 ) || (ap->pass[0] == 0) || ap->addr[0] == 0 ) {
         Serial.println("\n###  FIRST TIME SSID PASSWORD AND AP ADDRESS SET  ### ");
         StaticJsonDocument<500> doc;
         auto error = deserializeJson(doc, abc);
@@ -40,9 +42,9 @@ static void loadConfig( void ) {
             Serial.println("parseObject() failed");
             return;
         }
-        strcpy( cfg.ssid, root["AP_name"] );
-        strcpy( cfg.pass, root["AP_pass"] );
-        strcpy(cfg.apaddr, root["AP_IP"]);
+        strcpy( ap->ssid, root["AP_name"] );
+        strcpy( ap->pass, root["AP_pass"] );
+        strcpy( ap->addr, root["AP_IP"]);
         config_savecfg( );
     }
 }
