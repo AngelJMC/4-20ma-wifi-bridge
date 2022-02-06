@@ -337,7 +337,6 @@ void mqtt_task( void * parameter ) {
                         continue;
                     }
                 }
-
             } 
             else {
                 Serial.printf("failed, rc= %d %s\n", client.state(), "try again in 5 seconds");
@@ -347,7 +346,7 @@ void mqtt_task( void * parameter ) {
             }
             
             // Init and get the time
-            const long  gmtOffset_sec = 0;
+            const long  gmtOffset_sec = 3600;
             const int   daylightOffset_sec = 3600;
             configTime(gmtOffset_sec, daylightOffset_sec, cfg.ntp.host);
             xEventGroupClearBits( events, CONNECT_MQTT );

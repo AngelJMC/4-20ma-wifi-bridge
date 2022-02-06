@@ -156,12 +156,11 @@ void webserver_task( void * parameter ) {
 
     server.on("/main", HTTP_GET, [](AsyncWebServerRequest * request) {
         DynamicJsonDocument doc(1024);
-        doc["MAC"] = getMacAddress();
-        doc["myIP"] = WiFi.softAPIP().toString();
-        doc["wsid"] = cfg.wifi.ssid;
-        
-        //doc["localIP"] = LOCAL_IP;
-        doc["apname"] = cfg.ap.ssid;
+        doc["MAC"]     = getMacAddress();
+        doc["myIP"]    = WiFi.softAPIP().toString();
+        doc["wsid"]    = cfg.wifi.ssid;
+        doc["localIP"] = WiFi.localIP().toString();
+        doc["apname"]  = cfg.ap.ssid;
         //doc["s_pass"] = s_pass;
         
         String content;
