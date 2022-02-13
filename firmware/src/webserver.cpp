@@ -8,6 +8,11 @@
 #include "mqtt_task.h"
 #include "SPIFFS.h"
 
+enum {
+    verbose = 1
+};
+
+
 //##########################  configuration and variables  ##################
 
 String LOCAL_IP ;
@@ -72,37 +77,92 @@ static void ipToString(String* dest, struct ip src) {
 }
 
 
-void printIp(struct ip* src) {
-    Serial.printf("%d.%d.%d.%d\n", src->ip[0], src->ip[1], src->ip[2], src->ip[3]);
+void printIp( char const* name, struct ip const* src ) {
+    Serial.printf("%s : %d.%d.%d.%d\n", name, src->ip[0], src->ip[1], src->ip[2], src->ip[3]);
 }
 
+void print_ntpCfg( struct ntp_config const* ntp ) {
+    Serial.printf("NTP HOST: %s\n", ntp->host);
+    Serial.printf("NTP PORT: %d\n", ntp->port);
+    Serial.printf("NTP PERIOD: %d\n", ntp->period);
+}
+
+void print_NetworkCfg( struct wifi_config const* ntwk ) {
+        Serial.printf("WIFI SSID: %s\n", ntwk->ssid);
+        Serial.printf("WIFI PASS: %s\n", ntwk->pass);
+        Serial.printf("WIFI MoDE: %s\n", ntwk->mode );
+        
+        if ( strcmp( ntwk->mode, "static") == 0 ) {
+            printIp("WIFI IP: ", &ntwk->ip);
+            printIp("WIFI NETMASK: ", &ntwk->netmask);
+            printIp("WIFI GATEWAY: ", &ntwk->gateway);
+            printIp("WIFI PRIMARY DNS: ", &ntwk->primaryDNS);
+            printIp("WIFI SECONDARY DNS: ", &ntwk->secondaryDNS);
+        }
+}
+
+void print_ServiceCfg( struct service_config const* srvc ) {
+
+        Serial.printf("MQTT HOST IP: %s\n", srvc->host_ip);
+        Serial.printf("MQTT PORT: %d\n", srvc->port);
+        Serial.printf("MQTT CLIENT_ID: %s\n", srvc->client_id);
+        Serial.printf("MQTT USER: %s\n", srvc->username);
+        Serial.printf("MQTT PASS: %s\n", srvc->password);
+        Serial.printf("MQTT TEMP_TOPIC: %s\n", srvc->temp.topic);
+        Serial.printf("MQTT TEMP_INTER: %d\n", srvc->temp.period);
+        Serial.printf("MQTT TEMP_UND: %s\n", srvc->temp.unit);
+        Serial.printf("MQTT PING_TOPIC: %s\n", srvc->ping.topic);
+        Serial.printf("MQTT PING_INTER: %d\n", srvc->ping.period);
+        Serial.printf("MQTT PING_UND: %s\n", srvc->ping.unit);
+        Serial.printf("MQTT REL1_TOPIC: %s\n", srvc->relay1.topic);
+        Serial.printf("MQTT REL2_TOPIC: %s\n", srvc->relay2.topic);
+        Serial.printf("MQTT EN_TOPIC: %s\n", srvc->enableTemp.topic);
+}
+
+void print_apCfg( struct ap_config const* ap ) {
+    Serial.printf("AP SSID: %s\n", ap->ssid );
+    Serial.printf("AP PASS: %s\n", ap->pass );
+    Serial.printf("AP IP:   %s\n", ap->addr );
+}
 
 void webserver_task( void * parameter ) {
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
 
-    
     //#########################  HTML+JS+CSS  HANDLING #####################################
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-        request->send(SPIFFS, "/login.html", "text/html");
+        if(!request->authenticate(cfg.ap.web_user, cfg.ap.web_pass) )
+            return request->requestAuthentication();
+        request->send(SPIFFS, "/main.html", "text/html");
     });
     server.on("/main.html", HTTP_GET, [](AsyncWebServerRequest * request) {
+        if(!request->authenticate(cfg.ap.web_user, cfg.ap.web_pass) )
+            return request->requestAuthentication();
         request->send(SPIFFS, "/main.html", "text/html");
     });
     server.on("/js/bootstrap.min.js", HTTP_GET, [](AsyncWebServerRequest * request) {
+        if(!request->authenticate(cfg.ap.web_user, cfg.ap.web_pass) )
+            return request->requestAuthentication();
         request->send(SPIFFS, "/js/bootstrap.min.js", "text/javascript");
     });
     server.on("/js/jquery-1.12.3.min.js", HTTP_GET, [](AsyncWebServerRequest * request) {
+        if(!request->authenticate(cfg.ap.web_user, cfg.ap.web_pass) )
+            return request->requestAuthentication();
         request->send(SPIFFS, "/js/jquery-1.12.3.min.js", "text/javascript");
     });
     server.on("/js/pixie-custom.js", HTTP_GET, [](AsyncWebServerRequest * request) {
+        if(!request->authenticate(cfg.ap.web_user, cfg.ap.web_pass) )
+            return request->requestAuthentication();
         request->send(SPIFFS, "/js/pixie-custom.js", "text/javascript");
     });
     server.on("/css/bootstrap.min.css", HTTP_GET, [](AsyncWebServerRequest * request) {
+        if(!request->authenticate(cfg.ap.web_user, cfg.ap.web_pass) )
+            return request->requestAuthentication();
         request->send(SPIFFS, "/css/bootstrap.min.css", "text/css");
     });
     server.on("/css/pixie-main.css", HTTP_GET, [](AsyncWebServerRequest * request) {
+        if(!request->authenticate(cfg.ap.web_user, cfg.ap.web_pass) )
+            return request->requestAuthentication();
         request->send(SPIFFS, "/css/pixie-main.css", "text/css");
     });
     //############################# IMAGES HANDLING  ######################################################
@@ -141,20 +201,10 @@ void webserver_task( void * parameter ) {
         request->send(SPIFFS, "/images/timezone.png", "image/png");
     });
 
-    //###################################   ACTIONS FROM WEBPAGE BUTTTONS  ##############################
 
-    server.on("/login", HTTP_GET, [](AsyncWebServerRequest * request) {
-        StaticJsonDocument<500> doc;
-        auto error = deserializeJson(doc, abc);
-        JsonObject root = doc.as<JsonObject>();
-        if (error) {
-            Serial.println("parseObject() failed");
-            return;
-        }
-        request->send(200, "text/plain", root["Admin_pass"]);
-    });
-
+    
     server.on("/main", HTTP_GET, [](AsyncWebServerRequest * request) {
+
         DynamicJsonDocument doc(1024);
         doc["MAC"]     = getMacAddress();
         doc["myIP"]    = WiFi.softAPIP().toString();
@@ -168,6 +218,41 @@ void webserver_task( void * parameter ) {
         Serial.println(content);
         request->send(200, "application/json", content);
     });
+
+
+    server.on("/networkData", HTTP_GET, [](AsyncWebServerRequest * request) {
+        DynamicJsonDocument doc(1024);
+        String temporal;
+        doc["mode"]  = std::string(cfg.wifi.mode, strlen(cfg.wifi.mode));
+        ipToString( &temporal, cfg.wifi.ip );
+        doc["ip"]    = temporal;
+        ipToString( &temporal, cfg.wifi.gateway );
+        doc["gw"]    = temporal;
+        ipToString( &temporal, cfg.wifi.netmask );
+        doc["nm"]    = temporal;
+        ipToString( &temporal, cfg.wifi.primaryDNS );
+        doc["dns1"]  = temporal;
+        ipToString( &temporal, cfg.wifi.secondaryDNS );
+        doc["dns2"]  = temporal;
+
+        String content;
+        serializeJson(doc, content);
+        Serial.println(content);
+        request->send(200, "application/json", content);
+    });
+
+
+    server.on("/ntpData", HTTP_GET, [](AsyncWebServerRequest * request) {
+        DynamicJsonDocument doc(128);
+        doc["host"]    = std::string( cfg.ntp.host, strlen(cfg.ntp.host) );
+        doc["port"]    = cfg.ntp.port;
+
+        String content;
+        serializeJson(doc, content);
+        Serial.println(content);
+        request->send(200, "application/json", content);
+    });
+
 
     server.on("/serviceData", HTTP_GET, [](AsyncWebServerRequest * request) {
         DynamicJsonDocument doc(1024*2);
@@ -192,29 +277,34 @@ void webserver_task( void * parameter ) {
         request->send(200, "application/json", content);
     });
 
-    server.on("/networkData", HTTP_GET, [](AsyncWebServerRequest * request) {
-        DynamicJsonDocument doc(1024);
-        String temporal;
-        doc["mode"]  = std::string(cfg.wifi.mode, strlen(cfg.wifi.mode));
-        ipToString( &temporal, cfg.wifi.ip );
-        doc["ip"]    = temporal;
-        ipToString( &temporal, cfg.wifi.gateway );
-        doc["gw"]    = temporal;
-        ipToString( &temporal, cfg.wifi.netmask );
-        doc["nm"]    = temporal;
-        ipToString( &temporal, cfg.wifi.primaryDNS );
-        doc["dns1"]  = temporal;
-        ipToString( &temporal, cfg.wifi.secondaryDNS );
-        doc["dns2"]  = temporal;
+    //###################################   ACTIONS FROM WEBPAGE BUTTTONS  ##############################
 
-        String content;
-        serializeJson(doc, content);
-        Serial.println(content);
-        request->send(200, "application/json", content);
+
+
+    //################################# AP SSID-PASSWORD-IP RECEIVING FROM WEB PAGE WRITING TO EEPROM  ###############################
+    server.on("/applyAP", HTTP_GET, [] (AsyncWebServerRequest * request) {
+
+        String txtssid = request->getParam("txtssid")->value();
+        if (txtssid.length() > 0)
+            strcpy(cfg.ap.ssid, txtssid.c_str());
+
+        String txtpass = request->getParam("txtpass")->value();
+        if ( txtpass.length() > 0) 
+            strcpy(cfg.ap.pass, txtpass.c_str());
+
+        String txtapip = request->getParam("txtaplan")->value();
+        if ( txtapip.length() > 0) 
+            stringToIp( &cfg.ap.addr, txtapip );       
+
+        config_savecfg( );
+        request->send(200, "text/plain", "ok");
+
+        if( verbose )
+            print_apCfg( &cfg.ap );
     });
 
-    
-    server.on("/scan_wifi", HTTP_GET, [](AsyncWebServerRequest * request) {
+
+    server.on("/scanWifi", HTTP_GET, [](AsyncWebServerRequest * request) {
         String scan_wifi = request->getParam("scan_wifi")->value();
         if (scan_wifi) {
             Serial.println(jsonwifis);    
@@ -223,79 +313,70 @@ void webserver_task( void * parameter ) {
         }
     });
 
-    //################################# AP SSID-PASSWORD-IP RECEIVING FROM WEB PAGE WRITING TO EEPROM  ###############################
 
-    server.on("/applyBtnFunction", HTTP_GET, [] (AsyncWebServerRequest * request) {
-
-        String txtssid = request->getParam("txtssid")->value();
-        if (txtssid.length() > 0) {
-            strcpy(cfg.ap.ssid, txtssid.c_str());
-            Serial.printf("WRITING AP SSID :: %s\n", cfg.ap.ssid);
+    //############################### RECEIVING DATA SEND MMETHODS HTTP-MQTT-TCP ##############################
+    server.on("/applyNtp", HTTP_GET, [] (AsyncWebServerRequest * request) {
+        
+        String parameters = request->getParam("parameters")->value();
+        Serial.println(parameters);
+        
+        const size_t capacity = JSON_OBJECT_SIZE(15) + 128;
+        DynamicJsonDocument doc(capacity);
+        auto error = deserializeJson(doc, parameters);
+        JsonObject root = doc.as<JsonObject>();
+        if (error) {
+            Serial.println("parseObject() failed");
+            request->send(200, "text/plain", "error");
+            return;
         }
 
-        String txtpass = request->getParam("txtpass")->value();
-        if ( txtpass.length() > 0) {
-            strcpy(cfg.ap.pass, txtpass.c_str());
-            Serial.printf("WRITING AP PASS :: %s\n", cfg.ap.pass);
-        }
-
-        String txtapip = request->getParam("txtaplan")->value();
-        if ( txtapip.length() > 0) {
-            strcpy(cfg.ap.addr , txtapip.c_str());
-            Serial.printf("WRITING AP IP :: %s\n", cfg.ap.addr);
-        }
+        memset( &cfg.ntp, 0, sizeof( cfg.ntp ) );
+        if (root.containsKey("host"))  strcpy(cfg.ntp.host, root["host"]);
+        if (root.containsKey("port"))  cfg.ntp.port = root["port"];
         
         config_savecfg( );
         request->send(200, "text/plain", "ok");
+        
+        if( verbose )
+            print_ntpCfg( &cfg.ntp );
     });
 
 
-    //#####################################  Receving WIFI credential from WEB Page ############################
 
-    server.on("/connectBtnFunction", HTTP_GET, [] (AsyncWebServerRequest * request) {
+
+    //#####################################  Receving WIFI credential from WEB Page ############################
+    server.on("/applyNetwork", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
         String  wifi_ssid = request->getParam("wifi_ssid")->value();
-        if (wifi_ssid.length() > 0) {
-            strcpy(cfg.wifi.ssid, wifi_ssid.c_str());
-            Serial.printf("WRITING WIFI SSID :: %s\n", cfg.wifi.ssid);
-        }
+        if (wifi_ssid.length() > 0)
+            strcpy(cfg.wifi.ssid, wifi_ssid.c_str());  
         
         String  wifi_pass = request->getParam("wifi_pass")->value();
-        if ( wifi_pass.length() > 0) {
+        if ( wifi_pass.length() > 0)
             strcpy(cfg.wifi.pass, wifi_pass.c_str());
-            Serial.printf("WRITING WIFI PASS :: %s\n", cfg.wifi.pass);
-        }
 
         String  wifi_mode  = request->getParam("wifi_MODE")->value();
         strcpy(cfg.wifi.mode, wifi_mode.c_str());
-        Serial.printf("WRITING WIFI MPDE :: %s\n", cfg.wifi.mode );
 
         if (strcmp( wifi_mode.c_str(), "static") == 0) {
-            
-            String ipstatic = request->getParam("txtipadd")->value();
-            String netmask  = request->getParam("net_m")->value();
-            String gateway  = request->getParam("G_add")->value();
-            String dns1     = request->getParam("P_dns")->value();
-            String dns2     = request->getParam("S_dns")->value();
-        
-            Serial.println(ipstatic);
-            Serial.println(netmask);
-            Serial.println(gateway);
-            Serial.println(dns1);
-            Serial.println(dns2);
 
+            String ipstatic = request->getParam("txtipadd")->value();
             if ( ipstatic.length() > 0)
                 stringToIp(&cfg.wifi.ip, ipstatic);
             
+            String netmask = request->getParam("net_m")->value();
             if ( netmask.length() > 0)
                 stringToIp(&cfg.wifi.netmask, netmask);
 
+            String gateway = request->getParam("G_add")->value();
             if ( gateway.length() > 0)
                 stringToIp(&cfg.wifi.gateway, gateway);
 
+            String dns1 = request->getParam("P_dns")->value();
             if ( dns1.length() > 0)
                 stringToIp(&cfg.wifi.primaryDNS, dns1);
 
+            String dns2 = request->getParam("S_dns")->value();
             if ( dns2.length() > 0)
                 stringToIp(&cfg.wifi.secondaryDNS, dns2);
         }
@@ -303,11 +384,57 @@ void webserver_task( void * parameter ) {
         config_savecfg( );
         request->send(200, "text/plain", "ok");
 
+        if( verbose )
+            print_NetworkCfg( &cfg.wifi );
+
     });
+
+
+    //############################### RECEIVING DATA SEND MMETHODS HTTP-MQTT-TCP ##############################
+    server.on("/applyService", HTTP_GET, [] (AsyncWebServerRequest * request) {
+
+        String parameters = request->getParam("parameters")->value();
+        Serial.println(parameters);
+        
+        const size_t capacity = JSON_OBJECT_SIZE(15) + 512;
+        DynamicJsonDocument doc(capacity);
+        auto error = deserializeJson(doc, parameters);
+        JsonObject root = doc.as<JsonObject>();
+        if (error) {
+            Serial.println("parseObject() failed");
+            request->send(200, "text/plain", "error");
+            return;
+        }
+
+        memset( &cfg.service, 0, sizeof( cfg.service ) );
+        if (root.containsKey("host"))     strcpy(cfg.service.host_ip, root["host"]);
+        if (root.containsKey("port"))     cfg.service.port = root["port"];
+        if (root.containsKey("id"))       strcpy(cfg.service.client_id, root["id"]);
+        if (root.containsKey("user"))     strcpy(cfg.service.username, root["user"]);
+        if (root.containsKey("pass"))     strcpy(cfg.service.password, root["pass"]);
+        if (root.containsKey("temp_tp"))  strcpy(cfg.service.temp.topic, root["temp_tp"]);
+        if (root.containsKey("temp_tm"))  cfg.service.temp.period = root["temp_tm"];
+        if (root.containsKey("temp_ud"))  strcpy(cfg.service.temp.unit, root["temp_ud"]);
+        if (root.containsKey("ping_tp"))  strcpy(cfg.service.ping.topic, root["ping_tp"]); 
+        if (root.containsKey("ping_tm"))  cfg.service.ping.period = root["ping_tm"];
+        if (root.containsKey("ping_ud"))  strcpy(cfg.service.ping.unit, root["ping_ud"]);
+        if (root.containsKey("rel1_tp"))  strcpy(cfg.service.relay1.topic, root["rel1_tp"]);
+        if (root.containsKey("rel2_tp"))  strcpy(cfg.service.relay2.topic, root["rel2_tp"]);
+        if (root.containsKey("en_tp"))    strcpy(cfg.service.enableTemp.topic, root["en_tp"]);
+
+        config_savecfg( );
+        updateServiceCfg( );
+        request->send(200, "text/plain", "ok");
+        
+        if ( verbose )
+            print_ServiceCfg( &cfg.service );
+    });
+
 
     //###############################  RESTARTING DEVICE ON REBOOT BUTTON ####################################
 
     server.on("/rebootbtnfunction", HTTP_GET, [](AsyncWebServerRequest * request) {
+
         if (request->getParam("reboot_btn")->value() == "reboot_device") {
             Serial.print("restarting device");
             request->send(200, "text/plain", "ok");
@@ -327,138 +454,18 @@ void webserver_task( void * parameter ) {
     server.on("/resetbtnfunction", HTTP_GET, [](AsyncWebServerRequest * request) {
 
         if (request->getParam("reset_btn")->value() == "reset_device") {
-            //config_setdefault( ); 
+            config_setdefault( ); 
             Serial.print("restarting device");
-            //SPIFFS.remove("/ServiceData_jsonfile.txt");
+            request->send(200, "text/plain", "ok");
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            ESP.restart();
         }
-        request->send(200, "text/plain", "ok");
-    });
-    
-    //############################### RECEIVING DATA SEND MMETHODS HTTP-MQTT-TCP ##############################
-    server.on("/applyServiceFunction", HTTP_GET, [] (AsyncWebServerRequest * request) {
-        String parameters = request->getParam("parameters")->value();
-        Serial.println(parameters);
-        
-        const size_t capacity = JSON_OBJECT_SIZE(15) + 512;
-        DynamicJsonDocument doc(capacity);
-        auto error = deserializeJson(doc, parameters);
-        JsonObject root = doc.as<JsonObject>();
-        if (error) {
-            Serial.println("parseObject() failed");
-            return;
-        }
-
-        memset( &cfg.service, 0, sizeof( cfg.service ) );
-
-        if (root.containsKey("host")) 
-            strcpy(cfg.service.host_ip, root["host"]);
-
-        if (root.containsKey("port")) 
-            cfg.service.port = root["port"];
-
-        if (root.containsKey("id")) 
-            strcpy(cfg.service.client_id, root["id"]);
-
-        if (root.containsKey("user")) 
-            strcpy(cfg.service.username, root["user"]);
-
-        if (root.containsKey("pass")) 
-            strcpy(cfg.service.password, root["pass"]);
-
-        if (root.containsKey("temp_tp")) 
-            strcpy(cfg.service.temp.topic, root["temp_tp"]);
-        
-        if (root.containsKey("temp_tm")) 
-            cfg.service.temp.period = root["temp_tm"];
-
-        if (root.containsKey("temp_ud"))
-            strcpy(cfg.service.temp.unit, root["temp_ud"]);
-
-        if (root.containsKey("ping_tp")) 
-            strcpy(cfg.service.ping.topic, root["ping_tp"]);
-        
-        if (root.containsKey("ping_tm")) 
-            cfg.service.ping.period = root["ping_tm"];
-
-        if (root.containsKey("ping_ud"))
-            strcpy(cfg.service.ping.unit, root["ping_ud"]);
-
-        if (root.containsKey("rel1_tp")) 
-            strcpy(cfg.service.relay1.topic, root["rel1_tp"]);
-
-        if (root.containsKey("rel2_tp")) 
-            strcpy(cfg.service.relay2.topic, root["rel2_tp"]);
-
-        if (root.containsKey("en_tp")) 
-            strcpy(cfg.service.enableTemp.topic, root["en_tp"]);
-
-        config_savecfg( );
-        updateServiceCfg( );
-
-        Serial.printf("WRITING HOST IP :: %s\n", cfg.service.host_ip);
-        Serial.printf("WRITING PORT :: %d\n", cfg.service.port);
-        Serial.printf("WRITING CLIENT_ID :: %s\n", cfg.service.client_id);
-        Serial.printf("WRITING USER :: %s\n", cfg.service.username);
-        Serial.printf("WRITING PASS :: %s\n", cfg.service.password);
-        Serial.printf("WRITING TEMP_TOPIC :: %s\n", cfg.service.temp.topic);
-        Serial.printf("WRITING TEMP_INTER :: %d\n", cfg.service.temp.period);
-        Serial.printf("WRITING TEMP_UND :: %s\n", cfg.service.temp.unit);
-        Serial.printf("WRITING PING_TOPIC :: %s\n", cfg.service.ping.topic);
-        Serial.printf("WRITING PING_INTER :: %d\n", cfg.service.ping.period);
-        Serial.printf("WRITING PING_UND :: %s\n", cfg.service.ping.unit);
-        Serial.printf("WRITING REL1_TOPIC :: %s\n", cfg.service.relay1.topic);
-        Serial.printf("WRITING REL2_TOPIC :: %s\n", cfg.service.relay2.topic);
-        Serial.printf("WRITING EN_TOPIC :: %s\n", cfg.service.enableTemp.topic);
-        
-        request->send(200, "text/plain", "ok");
-    });
-
-    
-    server.on("/ntpData", HTTP_GET, [](AsyncWebServerRequest * request) {
-        DynamicJsonDocument doc(128);
-        doc["host"]    = std::string( cfg.ntp.host, strlen(cfg.ntp.host) );
-        doc["port"]    = cfg.ntp.port;
-
-        String content;
-        serializeJson(doc, content);
-        Serial.println(content);
-        request->send(200, "application/json", content);
-    });
-
-    //############################### RECEIVING DATA SEND MMETHODS HTTP-MQTT-TCP ##############################
-    server.on("/applyNtp", HTTP_GET, [] (AsyncWebServerRequest * request) {
-        String parameters = request->getParam("parameters")->value();
-        Serial.println(parameters);
-        
-        const size_t capacity = JSON_OBJECT_SIZE(15) + 128;
-        DynamicJsonDocument doc(capacity);
-        auto error = deserializeJson(doc, parameters);
-        JsonObject root = doc.as<JsonObject>();
-        if (error) {
-            Serial.println("parseObject() failed");
-            return;
-        }
-
-        memset( &cfg.ntp, 0, sizeof( cfg.ntp ) );
-        if (root.containsKey("host")) 
-            strcpy(cfg.ntp.host, root["host"]);
-
-        if (root.containsKey("port")) 
-            cfg.ntp.port = root["port"];
-        
-        config_savecfg( );
-        //updateServiceCfg( );
-        Serial.printf("WRITING HOST IP :: %s\n", cfg.ntp.host);
-        Serial.printf("WRITING PORT :: %d\n", cfg.ntp.port);
-
-        request->send(200, "text/plain", "ok");
     });
 
 
-
-
-
+    vTaskDelay(pdMS_TO_TICKS(5000));
     server.begin();
+    Serial.println("HTTP server started");
 
     for(;;){ // infinite loop
 

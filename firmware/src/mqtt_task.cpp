@@ -177,20 +177,7 @@ static bool testWifi( void ) {
 return false;
 }
 
-static void printWifiCfg( struct wifi_config* wf) {
-    Serial.printf("\nWifi SSID: %s\n", wf->ssid );
-    Serial.printf("Wifi PASSword: %s\n", wf->pass );
-    Serial.printf("WI-FI_MODE: %s\n", wf->mode );
 
-    if ( strcmp( wf->mode, "static") == 0 ) {
-        printIp( &wf->ip );
-        printIp( &wf->gateway );
-        printIp( &wf->netmask );
-        printIp( &wf->primaryDNS );
-        printIp( &wf->secondaryDNS );
-    }
-                
-}
 
 void updateServiceCfg( void ) {
     xEventGroupSetBits( events,   CONNECT_MQTT );
@@ -233,20 +220,18 @@ void mqtt_task( void * parameter ) {
         if( bitfied & START_AP_WIFI ) {
             
             struct ap_config* ap = &cfg.ap;
-            struct ip addr;
-            stringToIp( &addr, ap->addr );    
-            IPAddress Ip(addr.ip[0], addr.ip[1], addr.ip[2], addr.ip[3]);
-            IPAddress NMask(255, 255, 0, 0);
+            IPAddress ip(ap->addr.ip[0], ap->addr.ip[1], ap->addr.ip[2], ap->addr.ip[3]);
+            IPAddress nmask(255, 255, 0, 0);
 
             WiFi.mode(WIFI_AP_STA);
             WiFi.softAP( ap->ssid, ap->pass);
-            WiFi.softAPConfig(Ip, Ip, NMask );
+            WiFi.softAPConfig(ip, ip, nmask );
             vTaskDelay( pdMS_TO_TICKS(800) );
             
             String myIP = WiFi.softAPIP().toString();
             Serial.printf("Set up access point. SSID: %s, PASS: %s\n", ap->ssid, ap->pass);
             Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
-            Serial.printf("Access point ADDRESS: %s\n", ap->addr);
+            printIp( "Access point ADDRESS: ", &ap->addr );
 
             xEventGroupClearBits( events, START_AP_WIFI );
 
@@ -274,10 +259,11 @@ void mqtt_task( void * parameter ) {
                 }
             }
             
-            printWifiCfg( wf );
+            print_NetworkCfg( wf );
             WiFi.begin( wf->ssid, wf->pass );
             if ( !testWifi() ) {
                 Serial.println("Wifi connection failed");
+                vTaskDelay( pdMS_TO_TICKS(1000) );
                 continue;
             }
             
@@ -354,6 +340,7 @@ void mqtt_task( void * parameter ) {
         
         if( ( WiFi.status() != WL_CONNECTED ) ) {
             xEventGroupSetBits( events, CONNECT_WIFI );
+            vTaskDelay( pdMS_TO_TICKS(1000) );
             continue;
         }
         

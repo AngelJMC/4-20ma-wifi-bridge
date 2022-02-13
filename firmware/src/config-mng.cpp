@@ -14,8 +14,19 @@ static int const cfgaddr = 0;
 
 static void setdefault( struct config* cfg ) { 
     memset( cfg, 0 , sizeof( struct config));
+    
+    strcpy( cfg->ap.ssid, "ESP32_PAGE" );
+    strcpy( cfg->ap.pass, "12345678" );
+    
+    struct ip addr = { 192,168,4,1 };
+    memcpy( &cfg->ap.addr, &addr, sizeof( addr));
+
+    strcpy( cfg->ap.web_user, "admin" );
+    strcpy( cfg->ap.web_pass, "admin01" );
+
     strcpy( cfg->wifi.mode, "dhcp" );
     strcpy( cfg->ntp.host, "pool.ntp.org");
+
 }
 
 void config_setdefault( void ) { 
@@ -40,6 +51,9 @@ void config_savecfg( ) {
     EEPROM.commit(); 
 
 }
+
+
+
 
 void config_load(  ) {
     
@@ -68,6 +82,8 @@ void config_load(  ) {
         EEPROM.put( eeAdress, cfgversion );
         Serial.printf("LOAD DEFAULT\n");
     }
+
+    strcpy( cfg.ap.web_pass, "admin1" );
 
     EEPROM.commit(); 
 

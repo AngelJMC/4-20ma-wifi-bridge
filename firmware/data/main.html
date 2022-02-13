@@ -57,15 +57,15 @@
                     <img src=images/ap.png alt>Access Point Configuration</h4>
                 <form>
                     <div class=form-group> <label class="grey-text font-weight-light"> AP Name</label>
-                        <input type="text" id="txtssid" class="form-control" placeholder="SSID" value="">
+                        <input type="text" id="txtssid" class="form-control" placeholder="SSID" value="" maxlength="15" maxlength="31">
                     </div>
                     <div class=form-group> <label class="grey-text font-weight-light">AP IP</label>
-                        <input type="text" id="txtaplan" class="form-control" placeholder="ip ddress" value="">
+                        <input type="text" id="txtaplan" class="form-control" placeholder="ip ddress" value="" maxlength="15">
                     </div>
-                    <div class=form-group> <label for=defaultFormCardEmailEx class="grey-text font-weight-light">AP
-                            Password</label> <input type="password" id="txtpass" class="form-control"
-                            placeholder="Password"> </div>
-                        <input type="checkbox" onclick="Gateway_passFunction()">Show Password
+                    <div class=form-group> <label for=defaultFormCardEmailEx class="grey-text font-weight-light">AP Password</label> 
+                            <input type="password" id="txtpass" class="form-control" placeholder="Password" maxlength="31">
+                    </div>
+                    <input type="checkbox" onclick="Gateway_passFunction()">Show Password
                     <div class=text-center> <button class="btn btn-block" type="button" id="apply_btn"
                             title=Apply>Apply</button>
                     </div>
@@ -92,6 +92,11 @@
                         </div>
                         <div id=collapse1 class="panel-collapse collapse">
                             <div class=panel-body>
+                                <div class=text-center>
+                                    <button class="btn btn-block" type="button" id="scan_wifi" title=scan>Scan
+                                        Wi-fi</button>
+                                </div>
+                                
                                 <div class=form-group>
                                     <label>Nearby WLAN</label>
                                     <select class="mdb-select form-control" id="drpWLAN" placeholder="scan for wifi">
@@ -99,18 +104,15 @@
 
                                     </select>
                                 </div>
+
                                 <div class=form-group>
                                     <label for=defaultFormCardEmailEx
                                         class="grey-text font-weight-light">Password</label>
-                                    <input type=password id="wifi_pass" class=form-control placeholder=Password> 
+                                    <input type=password id="wifi_pass" class=form-control placeholder=Password maxlength="31"> 
                                       <input type="checkbox" onclick="Router_passFunction()">Show Password
 
                                 </div>
 
-                                <div class=text-center>
-                                    <button class="btn btn-block" type="button" id="scan_wifi" title=scan>Scan
-                                        Wi-fi</button>
-                                </div>
                                 <div class=form-group>
                                     <label>Mode</label>
                                     <select class="mdb-select-repeater form-control" id="wifi_MODE">
@@ -123,32 +125,33 @@
                                         <div class=form-group>
                                             <label for=defaultFormCardNameEx class="grey-text font-weight-light">
                                                 <span class=require>*</span>IP Address</label>
-                                            <input type=text id="txtipadd" class=form-control placeholder="IP Address">
+                                            <input type=text id="txtipadd" class=form-control placeholder="IP Address" maxlength="15">
                                         </div>
                                         <div class=form-group>
                                             <label for=defaultFormCardEmailEx class="grey-text font-weight-light">
                                                 <span class=require>*</span>NetMask</label>
-                                            <input type=email id="net_m" class=form-control placeholder=NetMask> </div>
+                                            <input type=email id="net_m" class=form-control placeholder=NetMask maxlength="15"> 
+                                        </div>
                                         <div class=form-group>
                                             <label for=defaultFormCardEmailEx class="grey-text font-weight-light">
                                                 <span class=require>*</span>Gateway Address</label>
-                                            <input type=text id="G_add" class=form-control
-                                                placeholder="Gateway Address"> </div>
+                                            <input type=text id="G_add" class=form-control placeholder="Gateway Address" maxlength="15"> 
+                                        </div>
                                         <div class=form-group>
                                             <label for=defaultFormCardEmailEx class="grey-text font-weight-light">
                                                 <span class=require>*</span>Primary DNS Address</label>
-                                            <input type=text id="P_dns" class=form-control
-                                                placeholder="Primary DNS Address"> </div>
+                                            <input type=text id="P_dns" class=form-control placeholder="Primary DNS Address" maxlength="15"> 
+                                        </div>
                                         <div class=form-group>
                                             <label for=defaultFormCardEmailEx
                                                 class="grey-text font-weight-light">Secondary DNS Address</label>
-                                            <input type=text id="S_dns" class=form-control
-                                                placeholder="Secondary DNS Address"> </div>
+                                            <input type=text id="S_dns" class=form-control placeholder="Secondary DNS Address" maxlength="15"> 
+                                        </div>
                                     </form>
                                 </div>
                                 <div class=text-center>
                                     <button class="btn btn-block" type="button" id="con_btn"
-                                        title=Connect>Connect</button>
+                                        title=Connect>Apply</button>
                                 </div>
 
                             </div>
@@ -162,10 +165,10 @@
                 <div class=form-group>
                     <div class=row>
                         <div class=col-md-8> <label>NTP server address</label>
-                            <input type=text id="hntp" class=form-control placeholder="NTP Address">
+                            <input type=text id="hntp" class=form-control placeholder="NTP Address" maxlength="63">
                         </div>
                         <div class=col-md-4><label>Port</label>
-                            <input type=text id="pntp" class=form-control placeholder="1883" value=""> </div>
+                            <input type=text id="pntp" class=form-control placeholder="1883" maxlength="5" value=""> </div>
                     </div>
                 </div>
 
@@ -184,10 +187,11 @@
                 <div class=form-group>
                     <div class=row>
                         <div class=col-md-8> <label>MQTT broker address</label>
-                            <input type=text id="hipadd" class=form-control placeholder="Mqtt Broker Address">
+                            <input type=text id="hipadd" class=form-control placeholder="Mqtt Broker Address" maxlength="63">
                         </div>
                         <div class=col-md-4><label>Port</label>
-                            <input type=text id="port" class=form-control placeholder="1883" value=""> </div>
+                            <input type=text id="port" class=form-control placeholder="1883" maxlength="5" value=""> 
+                        </div>
                     </div>
                 </div>
                 <div class=form-group>
@@ -197,17 +201,18 @@
 
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Username</label>
-                    <input type=text id="U_name" class=form-control placeholder=Username> </div>
+                    <input type=text id="U_name" class=form-control placeholder=Username maxlength="31"> 
+                </div>
 
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light">Password</label>
-                    <input type="text" id="s_pass" class=form-control placeholder="Password OR Token"> </div>
-                
+                    <input type="text" id="s_pass" class=form-control placeholder="Password OR Token" maxlength="31" > 
+                </div>
                 
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Publish Topic temperature</label>
-                    <input type=text id="pub_topic_temp" class=form-control placeholder="Status Publish Topic"> </div>
-
+                    <input type=text id="pub_topic_temp" class=form-control placeholder="Status Publish Topic" maxlength="63"> 
+                </div>
                 
                 <div class=form-group>
                     <label>Upload Interval</label>
@@ -226,7 +231,7 @@
 
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Publish Topic timestamp</label>
-                    <input type=text id="pub_topic_ping" class=form-control placeholder="Status Publish Topic"> </div>
+                    <input type=text id="pub_topic_ping" class=form-control placeholder="Status Publish Topic" maxlength="63"> </div>
 
                 
                 <div class=form-group>
@@ -246,27 +251,18 @@
 
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Subscribe Topic relay 1</label>
-                    <input type=text id="sub_topic_rel1" class=form-control placeholder="Status Publish Topic"> </div>
+                    <input type=text id="sub_topic_rel1" class=form-control placeholder="Status Publish Topic" maxlength="63"> </div>
                 
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Subscribe Topic relay 2</label>
-                    <input type=text id="sub_topic_rel2" class=form-control placeholder="Status Publish Topic"> </div>
+                    <input type=text id="sub_topic_rel2" class=form-control placeholder="Status Publish Topic" maxlength="63"> </div>
 
                 <div class=form-group>
                     <label for=defaultFormCardEmailEx class="grey-text font-weight-light"> Subscribe Topic enable transmission</label>
-                    <input type=text id="sub_topic_en" class=form-control placeholder="Status Publish Topic"> </div>
+                    <input type=text id="sub_topic_en" class=form-control placeholder="Status Publish Topic" maxlength="63"> </div>
 
                 <div class=form-group>
                     <div class=row>
-                        <!-- <div class=col-md-6>
-
-                            <div class=text-center>
-                                <button class="btn btn-block load-btn" type=submit title="Load Default">Load
-                                    Default</button>
-                            </div>
-
-                        </div>
- -->
                         <div class=col-md-12>
                             <div class=text-center>
                                 <button class="btn btn-block" type="button" id="service_btn" title=Apply>Apply</button>
@@ -315,7 +311,7 @@
             src=js/pixie-custom.js> </script> <script type="text/javascript">
 
                 var parameters = "";
-                var mainResponse = {};
+                //var mainResponse = {};
 
                 $(document).ready(function () {
 
@@ -325,10 +321,9 @@
                         $("#txtmyip").html(response.myIP);
                         $("#wsid").html(response.wsid);
                         $("#localip").html(response.localIP);
-                        $("#current_service").html(response.service);
                         $("#txtssid").val(response.apname);
                         $("#txtaplan").val(response.myIP);
-                        mainResponse = response;
+                        //mainResponse = response;
                     });
 
                     clicevent();
@@ -340,7 +335,7 @@
                         var txtaplan = $("#txtaplan").val();
                         var txtssid = $("#txtssid").val();
                         var txtpass = $("#txtpass").val();
-                        $.get("/applyBtnFunction?txtaplan=" + txtaplan + "&txtssid=" + txtssid + "&txtpass=" + txtpass).done(function (response) {
+                        $.get("/applyAP?txtaplan=" + txtaplan + "&txtssid=" + txtssid + "&txtpass=" + txtpass).done(function (response) {
                             if (response == "ok") {
                                 alert("please reboot the device to apply changes");
                             }
@@ -406,7 +401,7 @@
 
                 function scanWifi() {
                     var scan_wifi = $("#scan_wifi").val();
-                        $.get("/scan_wifi?scan_wifi=" + scan_wifi).done(function (response) {
+                        $.get("/scanWifi?scan_wifi=" + scan_wifi).done(function (response) {
                             console.log(response)
                             if (response.length > 0) {
                                 var html = "";
@@ -439,7 +434,7 @@
                         alert("Host,Port can't be empty");
                     } 
                     else {
-                        $.get("/applyServiceFunction?parameters=" + parameters).done( function (response) {
+                        $.get("/applyService?parameters=" + parameters).done( function (response) {
                             if (response == "ok") {
                                 alert("please reboot device to apply changes");
                             }
@@ -495,7 +490,7 @@
                         alert("SSID and password can't be empty");
                     } 
                     else {
-                        $.get("/connectBtnFunction?" + urldata).done(function (response) {
+                        $.get("/applyNetwork?" + urldata).done(function (response) {
                             if (response == "ok") {
                                 alert("please reboot the device to apply changes");
                             }

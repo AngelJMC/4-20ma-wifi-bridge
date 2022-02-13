@@ -39,8 +39,8 @@ struct sub_topic {
 };
 
 struct wifi_config {
-    char ssid[SSID_SIZE];
-    char pass[PASS_SIZE];
+    char ssid[32];
+    char pass[32];
     char mode[16];
     struct ip ip;
     struct ip netmask;
@@ -50,14 +50,15 @@ struct wifi_config {
 };
 
 struct ntp_config {
-    char host[APADDR_SIZE];
+    char host[64];
     int  port;
+    int  period;
 };
 
 struct service_config {
-    char host_ip[SSID_SIZE];
+    char host_ip[64];
     uint16_t port;
-    char client_id[64];
+    char client_id[32];
     char username[32];
     char password[32];
     struct pub_topic temp;
@@ -68,9 +69,11 @@ struct service_config {
 };
 
 struct ap_config {
-    char ssid[SSID_SIZE];
-    char pass[PASS_SIZE];
-    char addr[APADDR_SIZE];
+    char ssid[32];
+    char pass[32];
+    struct ip addr;
+    char web_user[16];
+    char web_pass[16];
 };
 
 /** Create a structure to hold the configuration data. */
