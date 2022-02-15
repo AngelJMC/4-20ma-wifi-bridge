@@ -148,14 +148,28 @@ static void callback(char* topic, byte *payload, unsigned int length) {
     
     struct service_config const* sc = &scfg;
     if( strcmp(sc->relay1.topic , topic) == 0 ) { 
-        digitalWrite(RELAY1, strcmp( value, "ON") == 0 ? HIGH : LOW);
+        if ( strcmp( value, "ON") == 0 )
+            digitalWrite(RELAY1, HIGH);
+        else if ( strcmp( value, "OFF") == 0 )
+            digitalWrite(RELAY1, LOW);
+        else
+            Serial.println("Invalid value relay 1");
     }
     else if( strcmp(sc->relay2.topic, topic) == 0 ) {
-        digitalWrite(RELAY2, strcmp( value, "ON") == 0 ? HIGH : LOW);
+        if ( strcmp( value, "ON") == 0 )
+            digitalWrite(RELAY2, HIGH);
+        else if ( strcmp( value, "OFF") == 0 )
+            digitalWrite(RELAY2, LOW);
+        else
+            Serial.println("Invalid value relay 2");
     }
     else if( strcmp(sc->enableTemp.topic, topic) == 0 ) {
-        strcmp( value, "ON") == 0 ? 
-            xTimerStart(tmTemp, pdMS_TO_TICKS(10)) : xTimerStop(tmTemp, pdMS_TO_TICKS(10));
+        if ( strcmp( value, "ON") == 0 )
+            xTimerStart(tmTemp, pdMS_TO_TICKS(10) );
+        else if ( strcmp( value, "OFF") == 0 )
+            xTimerStop(tmTemp, pdMS_TO_TICKS(10) );
+        else
+            Serial.println("Invalid value enable");
     }
     else{
         Serial.println("unknown topic");
@@ -292,8 +306,8 @@ void mqtt_task( void * parameter ) {
                 Serial.println("connected");
                 
                 //Once connected, publish an announcement...
-                client.publish( scfg.temp.topic, "temperature");
-                client.publish( scfg.ping.topic, "timestamp");
+                //client.publish( scfg.temp.topic, "temperature");
+                //client.publish( scfg.ping.topic, "timestamp");
                 
                 client.subscribe( scfg.relay1.topic);
                 client.subscribe( scfg.relay2.topic);

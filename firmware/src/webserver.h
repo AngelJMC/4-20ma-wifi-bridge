@@ -9,10 +9,6 @@ void printIp(struct ip* src);
 
 void stringToIp(struct ip* dest, String src);
 
-void print_ntpCfg( struct ntp_config const* ntp );
 
-void print_NetworkCfg( struct wifi_config const* ntwk );
-
-void printIp( char const* name, struct ip const* src );
 
 #endif //__LIGHT_CTRL__

@@ -92,6 +92,17 @@ void config_load( void );
 void config_savecfg( );
 
 void config_setdefault( void );
+
+void print_ntpCfg( struct ntp_config const* ntp );
+
+void print_NetworkCfg( struct wifi_config const* ntwk );
+
+void printIp( char const* name, struct ip const* src );
+
+void print_apCfg( struct ap_config const* ap );
+
+void print_ServiceCfg( struct service_config const* srvc );
+
 //#ifdef __cplusplus
 //} // extern "C"
 #endif
