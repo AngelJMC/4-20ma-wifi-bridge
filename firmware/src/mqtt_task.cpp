@@ -8,31 +8,26 @@
 #include "config-mng.h"
 #include "mqtt_task.h"
 #include "time.h"
+#include "uinterface.h"
 
 enum {
-    debug = 0
+    verbose = 0
 };
 
-enum {  RELAY1 = 26, 
-        RELAY2 = 27,
-        SENS   = 36,
-        LED1   = 8,
-        LED2   = 7,
-        SWITCH = 6 
-    };
+
 
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
 
 int status = WL_IDLE_STATUS;
 
-    /* An array of StaticTimer_t structures, which are used to store
-    the state of each created timer. */
-StaticTimer_t xTimerBuffers[ 2 ];  
+
 
 /*Create a static freertos timer*/
 static TimerHandle_t tmTemp;
 static TimerHandle_t tmPing;
+
+static bool isServerActive = false;
 
 /* Declare a variable to hold the created event group. */
 static EventGroupHandle_t events;
@@ -77,34 +72,42 @@ static void printLocalTime(){
     Serial.println();
 }
 
-
-static void reconnect() {
-    // Loop until we're reconnected
-    while (!client.connected()) {
-        status = WiFi.status();
-        if ( status != WL_CONNECTED) {
-            WiFi.begin( cfg.wifi.ssid, cfg.wifi.pass);
-            while (WiFi.status() != WL_CONNECTED) {
-                delay(500);
-                Serial.print(".");
-            }
-            Serial.println("Connected to AP");
-        }
-        Serial.print("Connecting broker ...");
+void print_APcfg( struct ap_config const* ap ) {
+    String myIP = WiFi.softAPIP().toString();
+    Serial.printf("Set up access point. SSID: %s, PASS: %s\n", ap->ssid, ap->pass);
+    Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
+    printIp( "Access point ADDRESS: ", &ap->addr );
+}
 
 
-        if (client.connect( cfg.service.client_id, cfg.service.username, cfg.service.password )) {
-            Serial.println( "[DONE]" );
-        } 
-        else {
-            Serial.print( "[FAILED] [ rc = " );
-            Serial.print( client.state() );
-            Serial.println( " : retrying in 5 seconds]" );
-            // Wait 5 seconds before retrying
-            delay( 4000 );
-        }
+void enterConfigMode( void ) {
+    
+
+    WiFi.mode(WIFI_AP_STA);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    isServerActive = true;
+    webserver_start( );
+    
+}
+
+void exitConfigMode( void ) {
+    webserver_stop( );
+    WiFi.mode(WIFI_STA);
+    isServerActive = false;
+}
+
+void toggleMode( void ) {
+    if( isServerActive ) {
+        exitConfigMode( );
+    }
+    else {
+        enterConfigMode( );
     }
 }
+
+
+
+
 
 //####################################### testing wifi connection function ############################
 
@@ -126,7 +129,7 @@ static void tmping_callback( TimerHandle_t xTimer ) {
     client.publish( sc->ping.topic, payload );
     Serial.printf("Publishing timestamp %s\n", payload);
     
-    if( debug ) {
+    if( verbose ) {
         printLocalTime();
     }
 }
@@ -165,9 +168,9 @@ static void callback(char* topic, byte *payload, unsigned int length) {
     }
     else if( strcmp(sc->enableTemp.topic, topic) == 0 ) {
         if ( strcmp( value, "ON") == 0 )
-            xTimerStart(tmTemp, pdMS_TO_TICKS(10) );
+            xTimerStart(tmTemp, 100 );
         else if ( strcmp( value, "OFF") == 0 )
-            xTimerStop(tmTemp, pdMS_TO_TICKS(10) );
+            xTimerStop(tmTemp, 100 );
         else
             Serial.println("Invalid value enable");
     }
@@ -217,42 +220,35 @@ static int getupdatePeriod( struct pub_topic const* tp ) {
 void mqtt_task( void * parameter ) {
 
 
-    
-    tmTemp = xTimerCreateStatic( "temperature", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmtemp_callback, &xTimerBuffers[0] );
-    tmPing = xTimerCreateStatic( "ping", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmping_callback, &xTimerBuffers[1] );
+    interface_setMode( OFF );
+    tmTemp = xTimerCreate( "temperature", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmtemp_callback );
+    tmPing = xTimerCreate( "ping", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmping_callback );
 
     /* Attempt to create the event group. */
     events = xEventGroupCreate();
     EventBits_t bitfied = xEventGroupSetBits( events, START_AP_WIFI | CONNECT_WIFI );
     
-
     for(;;){ // infinite loop
-        
         
         bitfied = xEventGroupGetBits( events );
 
         if( bitfied & START_AP_WIFI ) {
-            
-            struct ap_config* ap = &cfg.ap;
+            interface_setMode( OFF );
+            struct ap_config const* ap  = &cfg.ap;
             IPAddress ip(ap->addr.ip[0], ap->addr.ip[1], ap->addr.ip[2], ap->addr.ip[3]);
             IPAddress nmask(255, 255, 0, 0);
-
-            WiFi.mode(WIFI_AP_STA);
             WiFi.softAP( ap->ssid, ap->pass);
             WiFi.softAPConfig(ip, ip, nmask );
-            vTaskDelay( pdMS_TO_TICKS(800) );
+
+            if( verbose )
+                print_APcfg( ap );
             
-            String myIP = WiFi.softAPIP().toString();
-            Serial.printf("Set up access point. SSID: %s, PASS: %s\n", ap->ssid, ap->pass);
-            Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
-            printIp( "Access point ADDRESS: ", &ap->addr );
-
+            enterConfigMode( );
             xEventGroupClearBits( events, START_AP_WIFI );
-
         }
 
         if( bitfied & CONNECT_WIFI ) {
-            
+            interface_setMode( OFF );
             struct wifi_config* wf = &cfg.wifi;
             
             if( (wf->ssid[0] == 0 ) || wf->mode[0] == 0 ) {
@@ -273,7 +269,9 @@ void mqtt_task( void * parameter ) {
                 }
             }
             
-            print_NetworkCfg( wf );
+            if( verbose )
+                print_NetworkCfg( wf );
+            
             WiFi.begin( wf->ssid, wf->pass );
             if ( !testWifi() ) {
                 Serial.println("Wifi connection failed");
@@ -281,15 +279,15 @@ void mqtt_task( void * parameter ) {
                 continue;
             }
             
-            WiFi.mode(WIFI_STA);
+            exitConfigMode(  );
             Serial.printf("Connected to %s, IP: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str() );            
+            interface_setMode( BLINK );
             xEventGroupSetBits( events,   CONNECT_MQTT );
             xEventGroupClearBits( events, CONNECT_WIFI );
         }
 
         if( bitfied & CONNECT_MQTT ) {
             memcpy( &scfg, &cfg.service, sizeof(cfg.service) );
-            
             if( scfg.host_ip[0] == 0 || scfg.client_id == 0 ) {
                 Serial.println("No mqtt config found");
                 vTaskDelay( pdMS_TO_TICKS(10000) );
@@ -302,46 +300,25 @@ void mqtt_task( void * parameter ) {
             
             Serial.print("Attempting MQTT connection...");
             // Attempt to connect
-            if ( client.connect( scfg.client_id, scfg.username, scfg.password ) ) {
-                Serial.println("connected");
-                
-                //Once connected, publish an announcement...
-                //client.publish( scfg.temp.topic, "temperature");
-                //client.publish( scfg.ping.topic, "timestamp");
-                
+            if ( client.connect( scfg.client_id, scfg.username, scfg.password ) ) {                
                 client.subscribe( scfg.relay1.topic);
                 client.subscribe( scfg.relay2.topic);
                 client.subscribe( scfg.enableTemp.topic);
-
-                Serial.printf("Subscribed to: %s\n, %s\n, %s\n", 
-                    scfg.relay1.topic, scfg.relay2.topic, scfg.enableTemp.topic );
                 
-                if( xTimerChangePeriod( tmTemp, pdMS_TO_TICKS( getupdatePeriod( &scfg.temp )), 100 ) != pdPASS ) {
-                    Serial.println("Failed to change period");
-                    continue;
-                }
-                else {
-                    if( xTimerStop( tmPing, 0 ) != pdPASS ) {
-                        Serial.println("Failed to stop ping timer");
-                        continue;
-                    }
-                }
-
-                if( xTimerChangePeriod( tmPing, pdMS_TO_TICKS( getupdatePeriod( &scfg.ping )), 100 ) != pdPASS ) {
-                    Serial.println("Failed to change period");
-                    continue;
-                }
-                else {
-                    if( xTimerStart( tmPing, 0 ) != pdPASS ) {
-                        Serial.println("Failed to start timer 2");
-                        continue;
-                    }
+                xTimerChangePeriod( tmTemp, pdMS_TO_TICKS( getupdatePeriod( &scfg.temp )), 100 );
+                xTimerStop( tmTemp, 100 );
+                xTimerChangePeriod( tmPing, pdMS_TO_TICKS( getupdatePeriod( &scfg.ping )), 100 );
+                xTimerStart( tmPing, 100 );
+                
+                if (verbose ) {
+                    Serial.println("Connected to broker");
+                    Serial.printf("Subscribed to: %s\n, %s\n, %s\n", 
+                        scfg.relay1.topic, scfg.relay2.topic, scfg.enableTemp.topic );
                 }
             } 
             else {
-                Serial.printf("failed, rc= %d %s\n", client.state(), "try again in 5 seconds");
-                // Wait 5 seconds before retrying
-                vTaskDelay( pdMS_TO_TICKS(5000) );
+                Serial.printf("Failed broker connection, rc= %d %s\n", client.state(), "try again in 5 seconds");
+                vTaskDelay( pdMS_TO_TICKS(5000) ); // Wait 5 seconds before retrying
                 continue;
             }
             
@@ -349,18 +326,15 @@ void mqtt_task( void * parameter ) {
             const long  gmtOffset_sec = 3600;
             const int   daylightOffset_sec = 3600;
             configTime(gmtOffset_sec, daylightOffset_sec, cfg.ntp.host);
+            interface_setMode( ON );
             xEventGroupClearBits( events, CONNECT_MQTT );
         }
         
         if( ( WiFi.status() != WL_CONNECTED ) ) {
             xEventGroupSetBits( events, CONNECT_WIFI );
-            vTaskDelay( pdMS_TO_TICKS(1000) );
+            enterConfigMode( );
             continue;
         }
-        
-        //if ( !client.connected() ) {
-        //    reconnect();
-        //}
         
         client.loop();
         vTaskDelay( pdMS_TO_TICKS(250) );

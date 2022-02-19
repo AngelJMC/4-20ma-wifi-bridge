@@ -92,7 +92,7 @@ void config_load(  ) {
 
 
 void printIp( char const* name, struct ip const* src ) {
-    Serial.printf("%s : %d.%d.%d.%d\n", name, src->ip[0], src->ip[1], src->ip[2], src->ip[3]);
+    Serial.printf("%s%d.%d.%d.%d\n", name, src->ip[0], src->ip[1], src->ip[2], src->ip[3]);
 }
 
 void print_ntpCfg( struct ntp_config const* ntp ) {
@@ -104,7 +104,7 @@ void print_ntpCfg( struct ntp_config const* ntp ) {
 void print_NetworkCfg( struct wifi_config const* ntwk ) {
         Serial.printf("WIFI SSID: %s\n", ntwk->ssid);
         Serial.printf("WIFI PASS: %s\n", ntwk->pass);
-        Serial.printf("WIFI MoDE: %s\n", ntwk->mode );
+        Serial.printf("WIFI MODE: %s\n", ntwk->mode );
         
         if ( strcmp( ntwk->mode, "static") == 0 ) {
             printIp("WIFI IP: ", &ntwk->ip);

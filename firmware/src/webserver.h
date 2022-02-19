@@ -9,6 +9,10 @@ void printIp(struct ip* src);
 
 void stringToIp(struct ip* dest, String src);
 
+void webserver_start( void );
 
+void webserver_stop( void );
+
+void webserver_toggleState( void );
 
 #endif //__LIGHT_CTRL__

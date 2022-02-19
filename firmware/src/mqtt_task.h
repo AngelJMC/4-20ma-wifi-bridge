@@ -5,4 +5,6 @@ void updateServiceCfg( void );
 
 void mqtt_task( void * parameter );
 
+void toggleMode( void );
+
 #endif //__MQTT_TASK__

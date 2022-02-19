@@ -337,7 +337,10 @@
                         var txtpass = $("#txtpass").val();
                         $.get("/applyAP?txtaplan=" + txtaplan + "&txtssid=" + txtssid + "&txtpass=" + txtpass).done(function (response) {
                             if (response == "ok") {
-                                alert("please reboot the device to apply changes");
+                                alert("Please reboot the device to apply changes");
+                            }
+                            else if(response == "error") {
+                                alert("Incorrect IP format");
                             }
                         });
                     });
@@ -492,7 +495,10 @@
                     else {
                         $.get("/applyNetwork?" + urldata).done(function (response) {
                             if (response == "ok") {
-                                alert("please reboot the device to apply changes");
+                                alert("Please reboot the device to apply changes");
+                            }
+                            else if(response == "error") {
+                                alert("Incorrect IP format");
                             }
                         });
                     }

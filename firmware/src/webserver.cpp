@@ -7,19 +7,29 @@
 #include "config-mng.h"
 #include "mqtt_task.h"
 #include "SPIFFS.h"
+#include "uinterface.h"
 
 enum {
     verbose = 1
 };
 
 
+enum {
+    START_SERVER   = 1u << 0,
+    STOP_SERVER    = 1u << 1,
+    SCAN_WIFI      = 1u << 2,
+    SAVE_CFG       = 1u << 3,
+    UPDATE_SERVICE = 1u << 4,
+};
+
+static EventGroupHandle_t eventGroup;
+static bool isServerActive = false;
+
 //##########################  configuration and variables  ##################
 
-String LOCAL_IP ;
-String abc;
 String jsonwifis;
 AsyncWebServer server(80);
-static int scan = false;
+
 
 
 //################################  MAC ADDRESS FUNCTION  #########################################
@@ -60,14 +70,23 @@ void ipAdress(String& eap, String& iip1, String& iip2, String& iip3, String& iip
 
 
 /** Funtion to convert a String yo ip struct passed by reference */
-void stringToIp(struct ip* dest, String src) {
+int stringToIp(struct ip* dest, String src) {
     int i = 0;
+    struct ip tmp;
     char* pch = strtok((char*)src.c_str(), ".");
     while (pch != NULL) {
-        dest->ip[i] = atoi(pch);
+        if( 3 < i )
+            return -1;
+        tmp.ip[i] = atoi(pch);
         pch = strtok(NULL, ".");
         i++;
     }
+    
+    if ( 4 != i )
+        return -1;
+
+    *dest = tmp;
+    return 0;
 }
 
 static void ipToString(String* dest, struct ip src) {
@@ -76,12 +95,33 @@ static void ipToString(String* dest, struct ip src) {
     *dest = buf;
 }
 
+void webserver_start( void ){ 
+    xEventGroupSetBits( eventGroup, START_SERVER );
+}
+
+void webserver_stop( void ) { 
+    xEventGroupSetBits( eventGroup, STOP_SERVER );
+}
 
 
+void webserver_toggleState( void ) {
+    if( isServerActive ) {
+        xEventGroupSetBits( eventGroup, STOP_SERVER );
+    }
+    else {
+        xEventGroupSetBits( eventGroup, START_SERVER );
+    }
+}
 
 void webserver_task( void * parameter ) {
 
-
+    eventGroup = xEventGroupCreate();
+    interface_setState( OFF );
+    if( eventGroup == NULL ){
+        /* The event group was not created because there was insufficient
+        FreeRTOS heap available. */
+        Serial.println("Event group not created");
+    }
     //#########################  HTML+JS+CSS  HANDLING #####################################
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -237,21 +277,28 @@ void webserver_task( void * parameter ) {
 
     //################################# AP SSID-PASSWORD-IP RECEIVING FROM WEB PAGE WRITING TO EEPROM  ###############################
     server.on("/applyAP", HTTP_GET, [] (AsyncWebServerRequest * request) {
+        
+        int err = 0;
+        String txt = request->getParam("txtssid")->value();
+        if ( txt.length() > 0 )
+            strcpy(cfg.ap.ssid, txt.c_str());
 
-        String txtssid = request->getParam("txtssid")->value();
-        if (txtssid.length() > 0)
-            strcpy(cfg.ap.ssid, txtssid.c_str());
+        txt = request->getParam("txtpass")->value();
+        if ( txt.length() > 0) 
+            strcpy(cfg.ap.pass, txt.c_str());
 
-        String txtpass = request->getParam("txtpass")->value();
-        if ( txtpass.length() > 0) 
-            strcpy(cfg.ap.pass, txtpass.c_str());
+        txt = request->getParam("txtaplan")->value();
+        if ( txt.length() > 0) { 
+            err = stringToIp( &cfg.ap.addr, txt ); 
+        }    
 
-        String txtapip = request->getParam("txtaplan")->value();
-        if ( txtapip.length() > 0) 
-            stringToIp( &cfg.ap.addr, txtapip );       
-
-        config_savecfg( );
-        request->send(200, "text/plain", "ok");
+        if( 0 == err ) { 
+            request->send(200, "text/plain", "ok");
+            xEventGroupSetBits( eventGroup, SAVE_CFG );
+        }
+        else {
+            request->send(200, "text/plain", "error");
+        }
 
         if( verbose )
             print_apCfg( &cfg.ap );
@@ -263,7 +310,7 @@ void webserver_task( void * parameter ) {
         if (scan_wifi) {
             Serial.println(jsonwifis);    
             request->send(200, "application/json", jsonwifis);
-            scan = true;
+            xEventGroupSetBits( eventGroup, SCAN_WIFI );
         }
     });
 
@@ -288,7 +335,7 @@ void webserver_task( void * parameter ) {
         if (root.containsKey("host"))  strcpy(cfg.ntp.host, root["host"]);
         if (root.containsKey("port"))  cfg.ntp.port = root["port"];
         
-        config_savecfg( );
+        xEventGroupSetBits( eventGroup, SAVE_CFG );
         request->send(200, "text/plain", "ok");
         
         if( verbose )
@@ -301,42 +348,48 @@ void webserver_task( void * parameter ) {
     //#####################################  Receving WIFI credential from WEB Page ############################
     server.on("/applyNetwork", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
-        String  wifi_ssid = request->getParam("wifi_ssid")->value();
-        if (wifi_ssid.length() > 0)
-            strcpy(cfg.wifi.ssid, wifi_ssid.c_str());  
+        int err = 0;
+        String txt = request->getParam("wifi_ssid")->value();
+        if (txt.length() > 0)
+            strcpy(cfg.wifi.ssid, txt.c_str());  
         
-        String  wifi_pass = request->getParam("wifi_pass")->value();
-        if ( wifi_pass.length() > 0)
-            strcpy(cfg.wifi.pass, wifi_pass.c_str());
+        txt = request->getParam("wifi_pass")->value();
+        if ( txt.length() > 0)
+            strcpy(cfg.wifi.pass, txt.c_str());
 
-        String  wifi_mode  = request->getParam("wifi_MODE")->value();
-        strcpy(cfg.wifi.mode, wifi_mode.c_str());
+        txt  = request->getParam("wifi_MODE")->value();
+        strcpy(cfg.wifi.mode, txt.c_str());
 
-        if (strcmp( wifi_mode.c_str(), "static") == 0) {
+        if (strcmp( cfg.wifi.mode, "static") == 0) {
 
-            String ipstatic = request->getParam("txtipadd")->value();
-            if ( ipstatic.length() > 0)
-                stringToIp(&cfg.wifi.ip, ipstatic);
+            txt = request->getParam("txtipadd")->value();
+            if ( txt.length() > 0)
+                err |= stringToIp(&cfg.wifi.ip, txt);
             
-            String netmask = request->getParam("net_m")->value();
-            if ( netmask.length() > 0)
-                stringToIp(&cfg.wifi.netmask, netmask);
+            txt = request->getParam("net_m")->value();
+            if ( txt.length() > 0)
+                err |= stringToIp(&cfg.wifi.netmask, txt);
 
-            String gateway = request->getParam("G_add")->value();
-            if ( gateway.length() > 0)
-                stringToIp(&cfg.wifi.gateway, gateway);
+            txt = request->getParam("G_add")->value();
+            if ( txt.length() > 0)
+                err |= stringToIp(&cfg.wifi.gateway, txt);
 
-            String dns1 = request->getParam("P_dns")->value();
-            if ( dns1.length() > 0)
-                stringToIp(&cfg.wifi.primaryDNS, dns1);
+            txt = request->getParam("P_dns")->value();
+            if ( txt.length() > 0)
+                err |= stringToIp(&cfg.wifi.primaryDNS, txt);
 
-            String dns2 = request->getParam("S_dns")->value();
-            if ( dns2.length() > 0)
-                stringToIp(&cfg.wifi.secondaryDNS, dns2);
+            txt = request->getParam("S_dns")->value();
+            if ( txt.length() > 0)
+                err |= stringToIp(&cfg.wifi.secondaryDNS, txt);
         }
 
-        config_savecfg( );
-        request->send(200, "text/plain", "ok");
+        if( 0 == err ) { 
+            request->send(200, "text/plain", "ok");
+            xEventGroupSetBits( eventGroup, SAVE_CFG );
+        }
+        else {
+            request->send(200, "text/plain", "error");
+        }
 
         if( verbose )
             print_NetworkCfg( &cfg.wifi );
@@ -376,8 +429,7 @@ void webserver_task( void * parameter ) {
         if (root.containsKey("rel2_tp"))  strcpy(cfg.service.relay2.topic, root["rel2_tp"]);
         if (root.containsKey("en_tp"))    strcpy(cfg.service.enableTemp.topic, root["en_tp"]);
 
-        config_savecfg( );
-        updateServiceCfg( );
+        xEventGroupSetBits( eventGroup, SAVE_CFG | UPDATE_SERVICE );
         request->send(200, "text/plain", "ok");
         
         if ( verbose )
@@ -416,16 +468,36 @@ void webserver_task( void * parameter ) {
         }
     });
 
+    enum {
+        forever = -1,
+        clearonexit = pdTRUE,
+        waitall  = pdTRUE
+    };
 
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    server.begin();
-    Serial.println("HTTP server started");
+    for(;;){ 
 
-    for(;;){ // infinite loop
+        const EventBits_t waitbits = START_SERVER | STOP_SERVER | SCAN_WIFI | SAVE_CFG;
+        EventBits_t ctrlflags = xEventGroupWaitBits( eventGroup, waitbits, !clearonexit, !waitall, forever );
+        
+        if ( ctrlflags & START_SERVER ) {
+            xEventGroupClearBits( eventGroup, START_SERVER );
+            server.begin();
+            Serial.printf("\nStarting HTTP server\n");
+            isServerActive = true;
+            interface_setState( BLINK );
+        }
 
-        if( scan ) {
-            scan = false;
-            Serial.println("scan_wifi");
+        if ( ctrlflags & STOP_SERVER ) {
+            xEventGroupClearBits( eventGroup, STOP_SERVER );
+            server.end();
+            Serial.println("\nStoping HTTP server\n");
+            isServerActive = false;
+            interface_setState( ON );
+        }
+
+        if( ctrlflags & SCAN_WIFI ) {
+            xEventGroupClearBits( eventGroup, SCAN_WIFI );
+            Serial.println("Scan wifi");
             uint8_t WIFI_SSIDs = WiFi.scanNetworks();     
             if( WIFI_SSIDs != WIFI_SCAN_FAILED) {
                 jsonwifis = "[";
@@ -453,9 +525,18 @@ void webserver_task( void * parameter ) {
                 }
                 jsonwifis += "]";
             }
+        } 
+        
+        if ( ctrlflags & SAVE_CFG ) {
+            xEventGroupClearBits( eventGroup, SAVE_CFG );
+            config_savecfg( );
         }
 
-        vTaskDelay(pdMS_TO_TICKS(250));
+        if ( ctrlflags & UPDATE_SERVICE ) {
+            xEventGroupClearBits( eventGroup, UPDATE_SERVICE );
+            updateServiceCfg( );
+        }
+        
     }
 
 }
