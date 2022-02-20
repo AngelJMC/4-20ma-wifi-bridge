@@ -15,11 +15,12 @@ enum {
 
 
 enum {
-    START_SERVER   = 1u << 0,
-    STOP_SERVER    = 1u << 1,
-    SCAN_WIFI      = 1u << 2,
-    SAVE_CFG       = 1u << 3,
-    UPDATE_SERVICE = 1u << 4,
+    START_SERVER        = 1u << 0,
+    STOP_SERVER         = 1u << 1,
+    SCAN_WIFI           = 1u << 2,
+    SAVE_CFG            = 1u << 3,
+    UPDATE_SERVICE      = 1u << 4,
+    UPDATE_CALIBRATION  = 1u << 5,
 };
 
 static EventGroupHandle_t eventGroup;
@@ -199,7 +200,7 @@ void webserver_task( void * parameter ) {
     
     server.on("/main", HTTP_GET, [](AsyncWebServerRequest * request) {
 
-        DynamicJsonDocument doc(1024);
+        DynamicJsonDocument doc(512);
         doc["MAC"]     = getMacAddress();
         doc["myIP"]    = WiFi.softAPIP().toString();
         doc["wsid"]    = cfg.wifi.ssid;
@@ -264,6 +265,29 @@ void webserver_task( void * parameter ) {
         doc["rel1_tp"] = std::string(cfg.service.relay1.topic, strlen(cfg.service.relay1.topic));
         doc["rel2_tp"] = std::string(cfg.service.relay2.topic, strlen(cfg.service.relay2.topic));
         doc["en_tp"]   = std::string(cfg.service.enableTemp.topic , strlen(cfg.service.enableTemp.topic));
+
+        String content;
+        serializeJson(doc, content);
+        Serial.println(content);
+        request->send(200, "application/json", content);
+    });
+
+    server.on("/calibrationData", HTTP_GET, [](AsyncWebServerRequest * request) {
+        DynamicJsonDocument doc(128*2);
+        doc["x0"]    = cfg.cal.val[0].x;
+        doc["y0"]    = cfg.cal.val[0].y;
+        doc["x1"]    = cfg.cal.val[1].x;
+        doc["y1"]    = cfg.cal.val[1].y;
+
+        String content;
+        serializeJson(doc, content);
+        Serial.println(content);
+        request->send(200, "application/json", content);
+    });
+
+    server.on("/sample", HTTP_GET, [](AsyncWebServerRequest * request) {
+        DynamicJsonDocument doc(32);
+        doc["adcval"]    = analogRead(SENS);
 
         String content;
         serializeJson(doc, content);
@@ -436,7 +460,33 @@ void webserver_task( void * parameter ) {
             print_ServiceCfg( &cfg.service );
     });
 
+    //############################### RECEIVING DATA SEND MMETHODS HTTP-MQTT-TCP ##############################
+    server.on("/applyCalibration", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
+        String parameters = request->getParam("parameters")->value();
+        Serial.println(parameters);
+        
+        const size_t capacity = JSON_OBJECT_SIZE(15) + 128;
+        DynamicJsonDocument doc(capacity);
+        auto error = deserializeJson(doc, parameters);
+        JsonObject root = doc.as<JsonObject>();
+        if (error) {
+            Serial.println("parseObject() failed");
+            request->send(200, "text/plain", "error");
+            return;
+        }
+
+        if (root.containsKey("x0"))     cfg.cal.val[0].x =  root["x0"];
+        if (root.containsKey("y0"))     cfg.cal.val[0].y =  root["y0"];
+        if (root.containsKey("x1"))     cfg.cal.val[1].x =  root["x1"];
+        if (root.containsKey("y1"))     cfg.cal.val[1].y =  root["y1"];
+
+        xEventGroupSetBits( eventGroup, SAVE_CFG | UPDATE_CALIBRATION );
+        request->send(200, "text/plain", "ok");
+        
+        if ( verbose )
+            print_Calibration( &cfg.cal );
+    });
     //###############################  RESTARTING DEVICE ON REBOOT BUTTON ####################################
 
     server.on("/rebootbtnfunction", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -530,12 +580,19 @@ void webserver_task( void * parameter ) {
         if ( ctrlflags & SAVE_CFG ) {
             xEventGroupClearBits( eventGroup, SAVE_CFG );
             config_savecfg( );
+            
+            if ( ctrlflags & UPDATE_SERVICE ) {
+                xEventGroupClearBits( eventGroup, UPDATE_SERVICE );
+                updateServiceCfg( );
+            }
+
+            if( ctrlflags & UPDATE_CALIBRATION ) {
+                xEventGroupClearBits( eventGroup, UPDATE_CALIBRATION );
+                updateCalibration( );
+            }
         }
 
-        if ( ctrlflags & UPDATE_SERVICE ) {
-            xEventGroupClearBits( eventGroup, UPDATE_SERVICE );
-            updateServiceCfg( );
-        }
+
         
     }
 

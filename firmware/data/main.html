@@ -25,7 +25,7 @@
                 <a data-toggle=pill href=#service>
                     <img src=images/service.png alt>Service</a>
             </li>
-            <li>
+            <li id="liOther">
                 <a data-toggle=pill href=#other>
                     <img src=images/other.png alt>Other</a>
             </li>
@@ -71,8 +71,7 @@
                     </div>
 
 
-      <li style="color:red; font-size: 50%; ">NOTE:Press reboot button to apply any changes on hardware
-                    </li>
+                    <li style="color:red; font-size: 50%; ">NOTE:Press reboot button to apply any changes on hardware </li>
                 </form>
             </div>
 
@@ -80,7 +79,7 @@
                 <div class=panel-group id=accordion>
 
                     <div class="panel panel-default">
-                        <div class=panel-heading>
+                        <!-- <div class=panel-heading>
                             <h4 class=panel-title>
                                 <a class=active data-toggle=collapse data-parent=#accordion href=#collapse1> Wi-Fi settings 
                                     <label class=switch>
@@ -89,8 +88,8 @@
                                     </label>
                                 </a>
                             </h4>
-                        </div>
-                        <div id=collapse1 class="panel-collapse collapse">
+                        </div> -->
+                        <div id=collapse1 class=form-group>
                             <div class=panel-body>
                                 <div class=text-center>
                                     <button class="btn btn-block" type="button" id="scan_wifi" title=scan>Scan
@@ -274,9 +273,50 @@
             </div>
 
             <div id=other class="tab-pane fade">
+                
+                <div class=form-group>
+                    <div class=row>
+                        <div class=col-md-4>
+                            <div class=text-center>
+                                <button class="btn btn-secondary" type="button" id="getsamp1_btn" title=Apply>Get Sample</button>
+                            </div>
+                        </div>
+                        <div class=col-md-4> 
+                            <input type=text id="ical0" class=form-control placeholder="Input" >
+                        </div>
+                        <div class=col-md-4>
+                            <input type=text id="ocal0" class=form-control placeholder="Ouput" maxlength="5" value=""> 
+                        </div>
+                    </div>
+                </div>
+                <div class=form-group>
+                    <div class=row>
+                        <div class=col-md-4>
+                            <div class=text-center>
+                                <button class="btn btn-secondary" type="button" id="getsamp2_btn" title=Apply>Get Sample</button>
+                            </div>
+                        </div>
+                        <div class=col-md-4> 
+                            <input type=text id="ical1" class=form-control placeholder="Input" >
+                        </div>
+                        <div class=col-md-4>
+                            <input type=text id="ocal1" class=form-control placeholder="Ouput" maxlength="5" value=""> 
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class=form-group>
+                    <div class=row>
+                        <div class=col-md-12>
+                            <div class=text-center>
+                                <button class="btn btn-block" type="button" id="cal_btn" title=Apply>Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <h4>
-                    <img src=images/reboot.png alt>OTHER</h4>
                     <div class="row"> 
                     <div class="col-md-6">
                     <span>Reboot</span>
@@ -373,6 +413,32 @@
                         getNetWork();
                     });
 
+                    $(document).on("click", "#cal_btn", function () {
+                        getCalibration();
+                    });
+                    
+                    $(document).on("click", "#getsamp1_btn", function () {
+                        $.get("/sample").done( function(response){ 
+                            if( response ) {
+                                $("#ical0").val(response.adcval);
+                            }
+                            else {
+                                console.log("response empty");
+                            }
+                        });
+                    });
+
+                    $(document).on("click", "#getsamp2_btn", function () {
+                        $.get("/sample").done( function(response){ 
+                            if( response ) {
+                                $("#ical1").val(response.adcval);
+                            }
+                            else {
+                                console.log("response empty");
+                            }
+                        });
+                    });    
+
                     $(document).on('click', '#liService', function () {
                         setNtpData();
                         setServiceData();
@@ -381,6 +447,10 @@
                     $(document).on('click', '#liNetwork', function () {
                         setNetwork();
                         scanWifi();
+                    });
+
+                    $(document).on('click', '#liOther', function () {
+                        setCalibration();
                     });
 
                     $(document).on("click", "#reboot_btn", function () {
@@ -542,6 +612,34 @@
                         if( response ) {
                             $("#hntp").val(response.host);
                             $("#pntp").val(response.port);
+                        }
+                        else {
+                            console.log("response empty");
+                        }
+                    });
+                }
+
+                function getCalibration() {
+                    parameters = "{\"x0\":"        + $("#ical0").val()         + ","
+                                    + "\"y0\":"    + $("#ocal0").val()        + ","
+                                    + "\"x1\":"    + $("#ical1").val()         + ","
+                                    + "\"y1\":"    + $("#ocal1").val()        + "}";
+
+
+                    $.get("/applyCalibration?parameters=" + parameters).done( function (response) {
+                        if (response == "ok") {
+                            alert("please reboot device to apply changes");
+                        }
+                    });
+                }
+
+                function setCalibration() {
+                    $.get("/calibrationData").done( function(response){ 
+                        if( response ) {
+                            $("#ical0").val(response.x0);
+                            $("#ocal0").val(response.y0);
+                            $("#ical1").val(response.x1);
+                            $("#ocal1").val(response.y1);
                         }
                         else {
                             console.log("response empty");

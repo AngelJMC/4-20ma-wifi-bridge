@@ -11,10 +11,14 @@
 #include "uinterface.h"
 
 enum {
-    verbose = 0
+    verbose = 1
 };
 
-
+/*Calibration equation*/
+struct caleq {
+    double m;
+    double b;
+};
 
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
@@ -32,10 +36,13 @@ static bool isServerActive = false;
 /* Declare a variable to hold the created event group. */
 static EventGroupHandle_t events;
 static struct service_config scfg;
+static struct caleq eq = { .m = 1.0, .b = 0.0 };
+
 enum flags {
     START_AP_WIFI = 1 << 0,
     CONNECT_WIFI  = 1 << 1,
     CONNECT_MQTT  = 1 << 2,
+    UPDATE_CAL    = 1 << 3
 };
 
 static void printLocalTime(){
@@ -108,14 +115,26 @@ void toggleMode( void ) {
 
 
 
+/*Calculate the equation of a straight line used to calibrate*/
+static void getCalibrationEquation( struct caleq* eq, double x0, double y0, double x1, double y1 ) {
+    double num = 0 == (x1 - x0 ) ? 1 : (x1 - x0 );
+    eq->m = (y1 - y0) / num;
+    eq->b = y0 - eq->m * x0;
+    if( verbose ) {
+        Serial.printf("Calibration equation: y = %.2f * x + %.2f\n", eq->m, eq->b);
+    }
+}
 
-//####################################### testing wifi connection function ############################
-
+static double applyCalibration( struct caleq* eq, double x ) {
+    return eq->m * x + eq->b;
+} 
 
 static void tmtemp_callback( TimerHandle_t xTimer ) {
     struct service_config const* sc = &scfg;
     char payload[32];
-    sprintf(payload, "%d", analogRead(SENS)); 
+    int16_t raw = analogRead(SENS);
+    double converted = applyCalibration( &eq, raw );
+    sprintf(payload, "%d, %f",raw, converted); 
     client.publish( sc->temp.topic, payload);
     Serial.printf("Publishing temperature %s\n", payload);          
 }
@@ -200,6 +219,10 @@ void updateServiceCfg( void ) {
     xEventGroupSetBits( events,   CONNECT_MQTT );
 }
 
+void updateCalibration( void ) {
+    xEventGroupSetBits( events,   UPDATE_CAL );
+}
+
 static int getupdatePeriod( struct pub_topic const* tp ) {
     struct { char const* unit; int factor; } const units[] = {
         { "Second", 1 * 1000 },
@@ -224,9 +247,13 @@ void mqtt_task( void * parameter ) {
     tmTemp = xTimerCreate( "temperature", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmtemp_callback );
     tmPing = xTimerCreate( "ping", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmping_callback );
 
+    struct acq_cal const* cal = &cfg.cal;
+    getCalibrationEquation( &eq, cal->val[0].x, cal->val[0].y, cal->val[1].x, cal->val[1].y );
     /* Attempt to create the event group. */
     events = xEventGroupCreate();
     EventBits_t bitfied = xEventGroupSetBits( events, START_AP_WIFI | CONNECT_WIFI );
+
+    
     
     for(;;){ // infinite loop
         
@@ -284,6 +311,12 @@ void mqtt_task( void * parameter ) {
             interface_setMode( BLINK );
             xEventGroupSetBits( events,   CONNECT_MQTT );
             xEventGroupClearBits( events, CONNECT_WIFI );
+        }
+
+        if( bitfied & UPDATE_CAL ) {
+            struct acq_cal const* cal = &cfg.cal;
+            getCalibrationEquation( &eq, cal->val[0].x, cal->val[0].y, cal->val[1].x, cal->val[1].y );
+            xEventGroupClearBits( events, UPDATE_CAL );
         }
 
         if( bitfied & CONNECT_MQTT ) {

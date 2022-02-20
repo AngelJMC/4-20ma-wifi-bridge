@@ -138,3 +138,8 @@ void print_apCfg( struct ap_config const* ap ) {
     Serial.printf("AP PASS: %s\n", ap->pass );
     printIp("AP IP: ", &ap->addr);
 }
+
+void print_Calibration( struct acq_cal const* cal ) {
+    Serial.printf("CAL [x0,y0]: [%d,%f]\n", cal->val[0].x, cal->val[0].y  );
+    Serial.printf("CAL [x1,y1]: [%d,%f]\n", cal->val[1].x, cal->val[1].y  );
+}

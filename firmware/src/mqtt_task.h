@@ -7,4 +7,6 @@ void mqtt_task( void * parameter );
 
 void toggleMode( void );
 
+void updateCalibration( void );
+
 #endif //__MQTT_TASK__

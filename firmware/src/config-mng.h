@@ -76,12 +76,20 @@ struct ap_config {
     char web_pass[16];
 };
 
+struct acq_cal {
+    struct point {
+        float   y;
+        int16_t x;
+    } val[2];
+};
+
 /** Create a structure to hold the configuration data. */
 struct config  {
     struct ap_config ap;
     struct wifi_config wifi;
     struct service_config  service;
     struct ntp_config ntp;
+    struct acq_cal cal;
 };
 
 
@@ -102,6 +110,8 @@ void printIp( char const* name, struct ip const* src );
 void print_apCfg( struct ap_config const* ap );
 
 void print_ServiceCfg( struct service_config const* srvc );
+
+void print_Calibration( struct acq_cal const* cal );
 
 //#ifdef __cplusplus
 //} // extern "C"
