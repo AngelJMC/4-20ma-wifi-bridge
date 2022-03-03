@@ -350,9 +350,6 @@
         <script src=js/jquery-1.12.3.min.js> </script> <script src=js/bootstrap.min.js> </script> <script
             src=js/pixie-custom.js> </script> <script type="text/javascript">
 
-                var parameters = "";
-                //var mainResponse = {};
-
                 $(document).ready(function () {
 
                     $.get("/main").done(function (response) {
@@ -487,27 +484,29 @@
                 }
 
                 function getServiceData() {
-                    parameters = "{\"host\":\""        + $("#hipadd").val()                         + "\","
-                                    + "\"port\":"      + $("#port").val()                           + ","
-                                    + "\"id\":\""      + $("#c_id").val()                           + "\","
-                                    + "\"user\":\""    + $("#U_name").val()                         + "\","
-                                    + "\"pass\":\""    + $("#s_pass").val()                         + "\","
-                                    + "\"temp_tp\":\"" + $("#pub_topic_temp").val()                 + "\","
-                                    + "\"temp_tm\":"   + $("#interval_temp").val()                  + ","
-                                    + "\"temp_ud\":\"" + $("#u_interval_temp :selected").text()     + "\","
-                                    + "\"ping_tp\":\"" + $("#pub_topic_ping").val()                 + "\","
-                                    + "\"ping_tm\":"   + $("#interval_ping").val()                  + ","
-                                    + "\"ping_ud\":\"" + $("#u_interval_ping :selected").text()     + "\","
-                                    + "\"rel1_tp\":\"" + $("#sub_topic_rel1").val()                 + "\","
-                                    + "\"rel2_tp\":\"" + $("#sub_topic_rel2").val()                 + "\","
-                                    + "\"en_tp\":\""   + $("#sub_topic_en").val()                   + "\""
-                                + "}";
+                    let param = encodeURIComponent(
+                        "{\"host\":\""     + $("#hipadd").val()                         + "\","
+                            + "\"port\":"      + $("#port").val()                           + ","
+                            + "\"id\":\""      + $("#c_id").val()                           + "\","
+                            + "\"user\":\""    + $("#U_name").val()                         + "\","
+                            + "\"pass\":\""    + $("#s_pass").val()                         + "\","
+                            + "\"temp_tp\":\"" + $("#pub_topic_temp").val()                 + "\","
+                            + "\"temp_tm\":"   + $("#interval_temp").val()                  + ","
+                            + "\"temp_ud\":\"" + $("#u_interval_temp :selected").text()     + "\","
+                            + "\"ping_tp\":\"" + $("#pub_topic_ping").val()                 + "\","
+                            + "\"ping_tm\":"   + $("#interval_ping").val()                  + ","
+                            + "\"ping_ud\":\"" + $("#u_interval_ping :selected").text()     + "\","
+                            + "\"rel1_tp\":\"" + $("#sub_topic_rel1").val()                 + "\","
+                            + "\"rel2_tp\":\"" + $("#sub_topic_rel2").val()                 + "\","
+                            + "\"en_tp\":\""   + $("#sub_topic_en").val()                   + "\""
+                            + "}"
+                    );
 
                     if ($("#hipadd").val() == "" || $("#port").val() == "") {
                         alert("Host,Port can't be empty");
                     } 
                     else {
-                        $.get("/applyService?parameters=" + parameters).done( function (response) {
+                        $.get("/applyService?parameters=" + param).done( function (response) {
                             if (response == "ok") {
                                 alert("please reboot device to apply changes");
                             }
@@ -543,27 +542,23 @@
                     var wifi_ssid = $("#drpWLAN :selected").text();
                     var wifi_pass = $("#wifi_pass").val();
 
-                    if ( wifi_MODE == "static" ) {
-                        urldata = "wifi_ssid="  + wifi_ssid 
-                                + "&wifi_pass=" + wifi_pass 
-                                + "&wifi_MODE=" + $("#wifi_MODE :selected").text() 
-                                + "&txtipadd="  + $("#txtipadd").val() 
-                                + "&net_m="     + $("#net_m").val() 
-                                + "&G_add="     + $("#G_add").val() 
-                                + "&P_dns="     + $("#P_dns").val() 
-                                + "&S_dns="     + $("#S_dns").val();
-                    }
-                    else {
-                        urldata = "wifi_ssid="  + wifi_ssid 
-                                + "&wifi_pass=" + wifi_pass 
-                                + "&wifi_MODE=" + $("#wifi_MODE :selected").text();
-                    }
+                    let param = encodeURIComponent( 
+                        "{\"wifi_ssid\":\""       + wifi_ssid                         + "\","
+                            + "\"wifi_pass\":\""  + wifi_pass                         + "\","
+                            + "\"wifi_MODE\":\""  + $("#wifi_MODE :selected").text()  + "\","
+                            + "\"txtipadd\":\""   + $("#txtipadd").val()              + "\","
+                            + "\"net_m\":\""      + $("#net_m").val()                 + "\","
+                            + "\"G_add\":\""      + $("#G_add").val()                 + "\","
+                            + "\"P_dns\":\""      + $("#P_dns").val()                 + "\","
+                            + "\"S_dns\":\""      + $("#S_dns").val()                 + "\""
+                            + "}"
+                    );
 
                     if (wifi_ssid == "" || wifi_pass == "") {
                         alert("SSID and password can't be empty");
                     } 
                     else {
-                        $.get("/applyNetwork?" + urldata).done(function (response) {
+                        $.get("/applyNetwork?parameters=" + param ).done(function (response) {
                             if (response == "ok") {
                                 alert("Please reboot the device to apply changes");
                             }
@@ -591,15 +586,17 @@
                 }
                 
                 function getNtpData() {
-                    parameters = "{\"host\":\""        + $("#hntp").val()       + "\","
-                                    + "\"port\":"      + $("#pntp").val()                           
-                                    + "}";
+                    let param = encodeURIComponent( 
+                        "{\"host\":\""        + $("#hntp").val()       + "\","
+                            + "\"port\":"     + $("#pntp").val()                           
+                            + "}"
+                    );
 
                     if ($("#host").val() == "" || $("#port").val() == "") {
                         alert("Host,Port can't be empty");
                     } 
                     else {
-                        $.get("/applyNtp?parameters=" + parameters).done( function (response) {
+                        $.get("/applyNtp?parameters=" + param).done( function (response) {
                             if (response == "ok") {
                                 alert("please reboot device to apply changes");
                             }
@@ -620,13 +617,16 @@
                 }
 
                 function getCalibration() {
-                    parameters = "{\"x0\":"        + $("#ical0").val()         + ","
-                                    + "\"y0\":"    + $("#ocal0").val()        + ","
-                                    + "\"x1\":"    + $("#ical1").val()         + ","
-                                    + "\"y1\":"    + $("#ocal1").val()        + "}";
+                    let param = encodeURIComponent( 
+                        "{\"x0\":"        + $("#ical0").val()        + ","
+                            + "\"y0\":"   + $("#ocal0").val()        + ","
+                            + "\"x1\":"   + $("#ical1").val()        + ","
+                            + "\"y1\":"   + $("#ocal1").val()        
+                            + "}"
+                    );
 
 
-                    $.get("/applyCalibration?parameters=" + parameters).done( function (response) {
+                    $.get("/applyCalibration?parameters=" + param).done( function (response) {
                         if (response == "ok") {
                             alert("please reboot device to apply changes");
                         }

@@ -126,15 +126,25 @@ static void getCalibrationEquation( struct caleq* eq, double x0, double y0, doub
 }
 
 static double applyCalibration( struct caleq* eq, double x ) {
-    return eq->m * x + eq->b;
+    return eq->m * (x-5) + eq->b ;
 } 
 
 static void tmtemp_callback( TimerHandle_t xTimer ) {
     struct service_config const* sc = &scfg;
     char payload[32];
-    int16_t raw = analogRead(SENS);
+    uint32_t adc_reading = 0;
+    enum {
+        NO_OF_SAMPLES = 64
+    };
+    //Multisampling
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+        adc_reading += analogRead(SENS); //adc1_get_raw((adc1_channel_t)get_adc1_chanel(ADC_BAT_PIN));
+    }
+    adc_reading /= NO_OF_SAMPLES;
+    
+    int16_t raw = adc_reading;//analogRead(SENS);
     double converted = applyCalibration( &eq, raw );
-    sprintf(payload, "%d, %f",raw, converted); 
+    sprintf(payload, "%d, %0.1f",raw, converted + 0.05); 
     client.publish( sc->temp.topic, payload);
     Serial.printf("Publishing temperature %s\n", payload);          
 }

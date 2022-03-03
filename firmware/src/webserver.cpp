@@ -287,7 +287,17 @@ void webserver_task( void * parameter ) {
 
     server.on("/sample", HTTP_GET, [](AsyncWebServerRequest * request) {
         DynamicJsonDocument doc(32);
-        doc["adcval"]    = analogRead(SENS);
+        uint32_t adc_reading = 0;
+        enum {
+            NO_OF_SAMPLES = 64
+        };
+        //Multisampling
+        for (int i = 0; i < NO_OF_SAMPLES; i++) {
+            adc_reading += analogRead(SENS); //adc1_get_raw((adc1_channel_t)get_adc1_chanel(ADC_BAT_PIN));
+        }
+        adc_reading /= NO_OF_SAMPLES;
+        
+        doc["adcval"]    = adc_reading;
 
         String content;
         serializeJson(doc, content);
@@ -372,44 +382,35 @@ void webserver_task( void * parameter ) {
     //#####################################  Receving WIFI credential from WEB Page ############################
     server.on("/applyNetwork", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
-        int err = 0;
-        String txt = request->getParam("wifi_ssid")->value();
-        if (txt.length() > 0)
-            strcpy(cfg.wifi.ssid, txt.c_str());  
+        String parameters = request->getParam("parameters")->value();
+        Serial.println(parameters);
         
-        txt = request->getParam("wifi_pass")->value();
-        if ( txt.length() > 0)
-            strcpy(cfg.wifi.pass, txt.c_str());
-
-        txt  = request->getParam("wifi_MODE")->value();
-        strcpy(cfg.wifi.mode, txt.c_str());
-
-        if (strcmp( cfg.wifi.mode, "static") == 0) {
-
-            txt = request->getParam("txtipadd")->value();
-            if ( txt.length() > 0)
-                err |= stringToIp(&cfg.wifi.ip, txt);
-            
-            txt = request->getParam("net_m")->value();
-            if ( txt.length() > 0)
-                err |= stringToIp(&cfg.wifi.netmask, txt);
-
-            txt = request->getParam("G_add")->value();
-            if ( txt.length() > 0)
-                err |= stringToIp(&cfg.wifi.gateway, txt);
-
-            txt = request->getParam("P_dns")->value();
-            if ( txt.length() > 0)
-                err |= stringToIp(&cfg.wifi.primaryDNS, txt);
-
-            txt = request->getParam("S_dns")->value();
-            if ( txt.length() > 0)
-                err |= stringToIp(&cfg.wifi.secondaryDNS, txt);
+        const size_t capacity = JSON_OBJECT_SIZE(15) + 512;
+        DynamicJsonDocument doc(capacity);
+        /*auto error = deserializeJson(doc, parameters);
+        JsonObject root = doc.as<JsonObject>();
+        if (error) {
+            Serial.println("parseObject() failed");
+            request->send(200, "text/plain", "error");
+            return;
         }
 
+        //int err = 0;
+        if (root.containsKey("wifi_ssid"))     strcpy(cfg.wifi.ssid, root["wifi_ssid"]);
+        if (root.containsKey("wifi_pass"))     strcpy(cfg.wifi.pass, root["wifi_pass"]);
+        if (root.containsKey("wifi_MODE"))     strcpy(cfg.wifi.mode, root["wifi_MODE"]);
+
+        if ( strcmp( cfg.wifi.mode, "static") == 0 ) {
+            if (root.containsKey("txtipadd"))  stringToIp(&cfg.wifi.ip, root["txtipadd"]);
+            if (root.containsKey("net_m"))     stringToIp(&cfg.wifi.netmask, root["net_m"]);
+            if (root.containsKey("G_add"))     stringToIp(&cfg.wifi.gateway, root["G_add"]);
+            if (root.containsKey("P_dns"))     stringToIp(&cfg.wifi.primaryDNS, root["P_dns"]);
+            if (root.containsKey("S_dns"))     stringToIp(&cfg.wifi.secondaryDNS, root["S_dns"]);           
+        }*/
+        int err = 0;
         if( 0 == err ) { 
             request->send(200, "text/plain", "ok");
-            xEventGroupSetBits( eventGroup, SAVE_CFG );
+            //xEventGroupSetBits( eventGroup, SAVE_CFG );
         }
         else {
             request->send(200, "text/plain", "error");
@@ -551,14 +552,13 @@ void webserver_task( void * parameter ) {
             uint8_t WIFI_SSIDs = WiFi.scanNetworks();     
             if( WIFI_SSIDs != WIFI_SCAN_FAILED) {
                 jsonwifis = "[";
-                if (WIFI_SSIDs == 0){
+                if (WIFI_SSIDs == 0 || WIFI_SSIDs == 254 ){
                     Serial.println("no networks found");
                 }
                 else {
                     Serial.print(WIFI_SSIDs);
                     Serial.println(" networks found");
                     for (int i = 0; i < WIFI_SSIDs; ++i) {
-                        // Print SSID and RSSI for each network found
                         if (i)
                             jsonwifis += ",";
                         jsonwifis += "{";
@@ -567,11 +567,9 @@ void webserver_task( void * parameter ) {
                         jsonwifis += ",\"bssid\":\"" + WiFi.BSSIDstr(i) + "\"";
                         jsonwifis += ",\"channel\":" + String(WiFi.channel(i));
                         jsonwifis += ",\"secure\":" + String(WiFi.encryptionType(i));
-                        //                json += ",\"hidden\":"+String(WiFi.isHidden(i)?"true":"false");
                         jsonwifis += "}";
                     }
                     vTaskDelay(pdMS_TO_TICKS(10));
-                    
                 }
                 jsonwifis += "]";
             }

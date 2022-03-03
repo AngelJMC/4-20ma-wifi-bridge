@@ -15,8 +15,8 @@ static int const cfgaddr = 0;
 static void setdefault( struct config* cfg ) { 
     memset( cfg, 0 , sizeof( struct config));
     
-    strcpy( cfg->ap.ssid, "ESP32_PAGE" );
-    strcpy( cfg->ap.pass, "12345678" );
+    strcpy( cfg->ap.ssid, "WifiBridge_4-20ma" );
+    strcpy( cfg->ap.pass, "1234567890" );
     
     struct ip addr = { 192,168,4,1 };
     memcpy( &cfg->ap.addr, &addr, sizeof( addr));

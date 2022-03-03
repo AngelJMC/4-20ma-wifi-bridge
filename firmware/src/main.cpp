@@ -42,7 +42,12 @@ static void switch_callback( TimerHandle_t xTimer ) {
             action here. */
         }
         if( digitalRead( SWITCH ) == HIGH) {
-            Serial.println("Config default mode");
+            Serial.print("Config default mode...");
+            config_setdefault(  );
+            Serial.println(" Restarting...");
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            ESP.restart();
+            
         }
     }
 }
@@ -80,13 +85,11 @@ void setup() {
 
     digitalWrite(LED1, LED_OFF);
     digitalWrite(LED2, LED_OFF);
-    digitalWrite(RELAY1, HIGH);
-    digitalWrite(RELAY2, HIGH);
+    digitalWrite(RELAY1, LOW);
+    digitalWrite(RELAY2, LOW);
 
     attachInterrupt(SWITCH, Ext_INT1_ISR, RISING);
-    
     config_load(  );
-
 
     //########################  reading config file ########################################
     if (!SPIFFS.begin()) {

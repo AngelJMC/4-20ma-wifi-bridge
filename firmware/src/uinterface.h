@@ -6,10 +6,10 @@
 
 enum {  RELAY1 = 26, 
         RELAY2 = 27,
-        SENS   = 36,
+        SENS   = 34,
         LED1   = 0,
-        LED2   = 2,
-        SWITCH = 15 
+        LED2   = 15,
+        SWITCH = 2 
     };
 
 
