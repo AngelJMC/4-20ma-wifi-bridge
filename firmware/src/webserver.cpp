@@ -15,12 +15,13 @@ enum {
 
 
 enum {
-    START_SERVER        = 1u << 0,
-    STOP_SERVER         = 1u << 1,
-    SCAN_WIFI           = 1u << 2,
-    SAVE_CFG            = 1u << 3,
-    UPDATE_SERVICE      = 1u << 4,
-    UPDATE_CALIBRATION  = 1u << 5,
+    START_SERVER          = 1u << 0,
+    STOP_SERVER           = 1u << 1,
+    SCAN_WIFI             = 1u << 2,
+    SAVE_CFG              = 1u << 3,
+    UPDATE_SERVICE        = 1u << 4,
+    UPDATE_CALIBRATION    = 1u << 5,
+    OVERWRITE_CALIBRATION = 1u << 6
 };
 
 static EventGroupHandle_t eventGroup;
@@ -206,7 +207,6 @@ void webserver_task( void * parameter ) {
         doc["wsid"]    = cfg.wifi.ssid;
         doc["localIP"] = WiFi.localIP().toString();
         doc["apname"]  = cfg.ap.ssid;
-        //doc["s_pass"] = s_pass;
         
         String content;
         serializeJson(doc, content);
@@ -293,7 +293,7 @@ void webserver_task( void * parameter ) {
         };
         //Multisampling
         for (int i = 0; i < NO_OF_SAMPLES; i++) {
-            adc_reading += analogRead(SENS); //adc1_get_raw((adc1_channel_t)get_adc1_chanel(ADC_BAT_PIN));
+            adc_reading += analogRead(SENS); 
         }
         adc_reading /= NO_OF_SAMPLES;
         
@@ -341,11 +341,12 @@ void webserver_task( void * parameter ) {
 
     server.on("/scanWifi", HTTP_GET, [](AsyncWebServerRequest * request) {
         String scan_wifi = request->getParam("scan_wifi")->value();
-        if (scan_wifi) {
-            Serial.println(jsonwifis);    
-            request->send(200, "application/json", jsonwifis);
-            xEventGroupSetBits( eventGroup, SCAN_WIFI );
-        }
+        if ( verbose )
+            Serial.println(jsonwifis);  
+          
+        request->send(200, "application/json", jsonwifis);
+        xEventGroupSetBits( eventGroup, SCAN_WIFI );
+        
     });
 
 
@@ -353,7 +354,8 @@ void webserver_task( void * parameter ) {
     server.on("/applyNtp", HTTP_GET, [] (AsyncWebServerRequest * request) {
         
         String parameters = request->getParam("parameters")->value();
-        Serial.println(parameters);
+        if ( verbose )
+            Serial.println(parameters);
         
         const size_t capacity = JSON_OBJECT_SIZE(15) + 128;
         DynamicJsonDocument doc(capacity);
@@ -383,34 +385,35 @@ void webserver_task( void * parameter ) {
     server.on("/applyNetwork", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
         String parameters = request->getParam("parameters")->value();
-        Serial.println(parameters);
+        if ( verbose )
+            Serial.println(parameters);
         
         const size_t capacity = JSON_OBJECT_SIZE(15) + 512;
         DynamicJsonDocument doc(capacity);
-        /*auto error = deserializeJson(doc, parameters);
+        auto error = deserializeJson(doc, parameters);
         JsonObject root = doc.as<JsonObject>();
         if (error) {
             Serial.println("parseObject() failed");
             request->send(200, "text/plain", "error");
             return;
         }
-
-        //int err = 0;
+        
         if (root.containsKey("wifi_ssid"))     strcpy(cfg.wifi.ssid, root["wifi_ssid"]);
         if (root.containsKey("wifi_pass"))     strcpy(cfg.wifi.pass, root["wifi_pass"]);
         if (root.containsKey("wifi_MODE"))     strcpy(cfg.wifi.mode, root["wifi_MODE"]);
 
-        if ( strcmp( cfg.wifi.mode, "static") == 0 ) {
-            if (root.containsKey("txtipadd"))  stringToIp(&cfg.wifi.ip, root["txtipadd"]);
-            if (root.containsKey("net_m"))     stringToIp(&cfg.wifi.netmask, root["net_m"]);
-            if (root.containsKey("G_add"))     stringToIp(&cfg.wifi.gateway, root["G_add"]);
-            if (root.containsKey("P_dns"))     stringToIp(&cfg.wifi.primaryDNS, root["P_dns"]);
-            if (root.containsKey("S_dns"))     stringToIp(&cfg.wifi.secondaryDNS, root["S_dns"]);           
-        }*/
         int err = 0;
+        if ( strcmp( cfg.wifi.mode, "static") == 0 ) {
+            if (root.containsKey("txtipadd"))  err |= stringToIp(&cfg.wifi.ip, root["txtipadd"]);
+            if (root.containsKey("net_m"))     err |= stringToIp(&cfg.wifi.netmask, root["net_m"]);
+            if (root.containsKey("G_add"))     err |= stringToIp(&cfg.wifi.gateway, root["G_add"]);
+            if (root.containsKey("P_dns"))     err |= stringToIp(&cfg.wifi.primaryDNS, root["P_dns"]);
+            if (root.containsKey("S_dns"))     err |= stringToIp(&cfg.wifi.secondaryDNS, root["S_dns"]);           
+        }
+        
         if( 0 == err ) { 
             request->send(200, "text/plain", "ok");
-            //xEventGroupSetBits( eventGroup, SAVE_CFG );
+            xEventGroupSetBits( eventGroup, SAVE_CFG );
         }
         else {
             request->send(200, "text/plain", "error");
@@ -426,7 +429,8 @@ void webserver_task( void * parameter ) {
     server.on("/applyService", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
         String parameters = request->getParam("parameters")->value();
-        Serial.println(parameters);
+        if ( verbose )
+            Serial.println(parameters);
         
         const size_t capacity = JSON_OBJECT_SIZE(15) + 512;
         DynamicJsonDocument doc(capacity);
@@ -465,7 +469,8 @@ void webserver_task( void * parameter ) {
     server.on("/applyCalibration", HTTP_GET, [] (AsyncWebServerRequest * request) {
 
         String parameters = request->getParam("parameters")->value();
-        Serial.println(parameters);
+        if ( verbose )
+            Serial.println(parameters);
         
         const size_t capacity = JSON_OBJECT_SIZE(15) + 128;
         DynamicJsonDocument doc(capacity);
@@ -476,13 +481,14 @@ void webserver_task( void * parameter ) {
             request->send(200, "text/plain", "error");
             return;
         }
-
+        bool overwrite = false;
         if (root.containsKey("x0"))     cfg.cal.val[0].x =  root["x0"];
         if (root.containsKey("y0"))     cfg.cal.val[0].y =  root["y0"];
         if (root.containsKey("x1"))     cfg.cal.val[1].x =  root["x1"];
         if (root.containsKey("y1"))     cfg.cal.val[1].y =  root["y1"];
+        if (root.containsKey("owrite")) overwrite = root["owrite"];
 
-        xEventGroupSetBits( eventGroup, SAVE_CFG | UPDATE_CALIBRATION );
+        xEventGroupSetBits( eventGroup, SAVE_CFG | UPDATE_CALIBRATION | ( overwrite ? OVERWRITE_CALIBRATION : 0) );
         request->send(200, "text/plain", "ok");
         
         if ( verbose )
@@ -493,8 +499,8 @@ void webserver_task( void * parameter ) {
     server.on("/rebootbtnfunction", HTTP_GET, [](AsyncWebServerRequest * request) {
 
         if (request->getParam("reboot_btn")->value() == "reboot_device") {
-            Serial.print("restarting device");
             request->send(200, "text/plain", "ok");
+            Serial.print("Restarting device");
             vTaskDelay(pdMS_TO_TICKS(5000));
             ESP.restart();
         }
@@ -511,11 +517,8 @@ void webserver_task( void * parameter ) {
     server.on("/resetbtnfunction", HTTP_GET, [](AsyncWebServerRequest * request) {
 
         if (request->getParam("reset_btn")->value() == "reset_device") {
-            config_setdefault( ); 
-            Serial.print("restarting device");
             request->send(200, "text/plain", "ok");
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            ESP.restart();
+            factoryreset();
         }
     });
 
@@ -588,10 +591,12 @@ void webserver_task( void * parameter ) {
                 xEventGroupClearBits( eventGroup, UPDATE_CALIBRATION );
                 updateCalibration( );
             }
-        }
 
-
-        
+            if( ctrlflags & OVERWRITE_CALIBRATION ) {
+                xEventGroupClearBits( eventGroup, OVERWRITE_CALIBRATION );
+                config_overwritedefaultcal( &cfg.cal );
+            }
+        }        
     }
 
 }

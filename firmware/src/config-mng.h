@@ -78,7 +78,7 @@ struct ap_config {
 
 struct acq_cal {
     struct point {
-        float   y;
+        double  y;
         int16_t x;
     } val[2];
 };
@@ -98,6 +98,8 @@ extern struct config cfg;
 void config_load( void ); 
 
 void config_savecfg( );
+
+void config_overwritedefaultcal( struct acq_cal const* calibration );
 
 void config_setdefault( void );
 

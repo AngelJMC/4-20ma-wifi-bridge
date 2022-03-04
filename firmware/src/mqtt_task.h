@@ -9,4 +9,6 @@ void toggleMode( void );
 
 void updateCalibration( void );
 
+void factoryreset( void );
+
 #endif //__MQTT_TASK__

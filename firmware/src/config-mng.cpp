@@ -8,7 +8,9 @@
 #define EEPROM_SIZE 1024
 
 struct config cfg;
+struct acq_cal cal;
 static int const cfgaddr = 0; 
+static int const caladdr = 900;
 
 
 
@@ -16,17 +18,18 @@ static void setdefault( struct config* cfg ) {
     memset( cfg, 0 , sizeof( struct config));
     
     strcpy( cfg->ap.ssid, "WifiBridge_4-20ma" );
-    strcpy( cfg->ap.pass, "1234567890" );
+    strcpy( cfg->ap.pass, "Kmf5cyJUWw" );
     
     struct ip addr = { 192,168,4,1 };
     memcpy( &cfg->ap.addr, &addr, sizeof( addr));
 
-    strcpy( cfg->ap.web_user, "admin" );
-    strcpy( cfg->ap.web_pass, "admin01" );
+    strcpy( cfg->ap.web_user, "supervisor" );
+    strcpy( cfg->ap.web_pass, "fEVcCQxig6" );
 
     strcpy( cfg->wifi.mode, "dhcp" );
     strcpy( cfg->ntp.host, "pool.ntp.org");
 
+    cfg->cal = cal;
 }
 
 void config_setdefault( void ) { 
@@ -35,27 +38,20 @@ void config_setdefault( void ) {
     EEPROM.commit();
 }
 
-void config_savecfg( ) {
-    
-    // replace values in byte-array cache with modified data
-    // no changes made to flash, all in local byte-array cache
+void config_savecfg( void ) {
     Serial.println("Saving config to EEPROM");
-    
     EEPROM.put( cfgaddr, cfg );
-
-
-    // actually write the content of byte-array cache to
-    // hardware flash.  flash write occurs if and only if one or more byte
-    // in byte-array cache has been changed, but if so, ALL 512 bytes are 
-    // written to flash
     EEPROM.commit(); 
-
 }
 
+void config_overwritedefaultcal( struct acq_cal const* calibration ) {
+    Serial.println("Overwrite default calibration to EEPROM");
+    cal = *calibration;
+    EEPROM.put( caladdr, cal );
+    EEPROM.commit(); 
+}
 
-
-
-void config_load(  ) {
+void config_load( void ) {
     
     if ( !EEPROM.begin(EEPROM_SIZE) ) {
         Serial.println("failed to initialise EEPROM"); 
@@ -67,26 +63,34 @@ void config_load(  ) {
     EEPROM.get( eeAdress, cfg );
     eeAdress += sizeof( struct config );
     EEPROM.get( eeAdress, cfgversion );
+    eeAdress += sizeof( int );
 
-    if (eeAdress > EEPROM_SIZE) {
-        Serial.println("ERROR > EEPROM insufficient size");
+    if ( eeAdress >= caladdr ) {
+        Serial.println("ERROR > EEPROM insufficient size for config");
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+
+    EEPROM.get( caladdr, cal );
+    eeAdress += sizeof( struct acq_cal );
+    
+    if ( eeAdress > EEPROM_SIZE ) {
+        Serial.println("ERROR > EEPROM insufficient size for calibration");
         vTaskDelay(pdMS_TO_TICKS(3000));
     }
 
     if ( cfgversion != CFG_VER ) {
         setdefault( &cfg );
-        eeAdress = 0;
+        eeAdress = cfgaddr;
         EEPROM.put( eeAdress, cfg );
         eeAdress += sizeof( struct config );
         cfgversion = CFG_VER;
         EEPROM.put( eeAdress, cfgversion );
+        EEPROM.put( caladdr, cal );
+        eeAdress += sizeof( struct acq_cal );
         Serial.printf("LOAD DEFAULT\n");
     }
 
-    strcpy( cfg.ap.web_pass, "admin1" );
-
     EEPROM.commit(); 
-
 } 
 
 

@@ -42,12 +42,7 @@ static void switch_callback( TimerHandle_t xTimer ) {
             action here. */
         }
         if( digitalRead( SWITCH ) == HIGH) {
-            Serial.print("Config default mode...");
-            config_setdefault(  );
-            Serial.println(" Restarting...");
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            ESP.restart();
-            
+            factoryreset( );
         }
     }
 }

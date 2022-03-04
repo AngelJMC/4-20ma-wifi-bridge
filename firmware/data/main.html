@@ -79,16 +79,6 @@
                 <div class=panel-group id=accordion>
 
                     <div class="panel panel-default">
-                        <!-- <div class=panel-heading>
-                            <h4 class=panel-title>
-                                <a class=active data-toggle=collapse data-parent=#accordion href=#collapse1> Wi-Fi settings 
-                                    <label class=switch>
-                                        <input type=checkbox>
-                                        <span class="slider round"></span>
-                                    </label>
-                                </a>
-                            </h4>
-                        </div> -->
                         <div id=collapse1 class=form-group>
                             <div class=panel-body>
                                 <div class=text-center>
@@ -115,8 +105,8 @@
                                 <div class=form-group>
                                     <label>Mode</label>
                                     <select class="mdb-select-repeater form-control" id="wifi_MODE">
-                                        <option value=1 class=inner-dhcp-box>dhcp</option>
-                                        <option value=2 class=inner-static-box>static</option>
+                                        <option value="dhcp" class=inner-dhcp-box>dhcp</option>
+                                        <option value="static" class=inner-static-box>static</option>
                                     </select>
                                 </div>
                                 <div class=box-4>
@@ -220,9 +210,9 @@
                             <input type=text id="interval_temp" class=form-control placeholder="number"> </div>
                         <div class=col-md-8>
                             <select class="mdb-select form-control" id="u_interval_temp">
-                                <option value=1>Second</option>
-                                <option value=2>Minute</option>
-                                <option value=3>Hour</option>
+                                <option value="Second">Second</option>
+                                <option value="Minute">Minute</option>
+                                <option value="Hour">Hour</option>
                             </select>
                         </div>
                     </div>
@@ -240,9 +230,9 @@
                             <input type=text id="interval_ping" class=form-control placeholder="number"> </div>
                         <div class=col-md-8>
                             <select class="mdb-select form-control" id="u_interval_ping">
-                                <option value=1>Second</option>
-                                <option value=2>Minute</option>
-                                <option value=3>Hour</option>
+                                <option value="Second">Second</option>
+                                <option value="Minute">Minute</option>
+                                <option value="Hour">Hour</option>
                             </select>
                         </div>
                     </div>
@@ -303,7 +293,9 @@
                             <input type=text id="ocal1" class=form-control placeholder="Ouput" maxlength="5" value=""> 
                         </div>
                     </div>
-
+                    <div class="checkbox">
+                        <label><input type="checkbox" id="defaultcal" >Overwrite default calibration</label>
+                    </div> 
                 </div>
 
                 <div class=form-group>
@@ -319,31 +311,12 @@
                 <h4>
                     <div class="row"> 
                     <div class="col-md-6">
-                    <span>Reboot</span>
-                        <a class="btn btn-block" type="button" id="reboot_btn" title=Reboot
-                            href=javascript:void(0);>Reboot</a>
+                        <a class="btn btn-block" type="button" id="reboot_btn" title=Reboot >Reboot</a>
                     </div>
 					<div class="col-md-6">
-						 <span>Reset</span>
-                        <a class="btn btn-block" type="button" id="reset_btn" title=Reset
-                            href=javascript:void(0);>Reset</a>
+                        <a class="btn btn-block" type="button" id="reset_btn" title=Reset > Factory Reset</a>
 					</div>
 					</div>
-               <!--  <div class=combo-box>
-                    <p>
-                        <span>1.Reboot the gateway</span>
-                        <a class="btn btn-block" type="button" id="reboot_btn" title=Reboot
-                            href=javascript:void(0);>Reboot</a>
-                    </p>
-                </div>
-                <div class=combo-box>
-                    <p>
-                        <span>2.Factory reset</span>
-                        <a class="btn btn-block" type="button" id="reset_btn" title=Reset
-                            href=javascript:void(0);>Reset</a>
-                    </p>
-                </div> -->
-   
             </div>
         </div>
          </div>
@@ -353,14 +326,12 @@
                 $(document).ready(function () {
 
                     $.get("/main").done(function (response) {
-                        // mac,myip,localip on static field
                         $("#txtmac").html(response.MAC);
                         $("#txtmyip").html(response.myIP);
                         $("#wsid").html(response.wsid);
                         $("#localip").html(response.localIP);
                         $("#txtssid").val(response.apname);
                         $("#txtaplan").val(response.myIP);
-                        //mainResponse = response;
                     });
 
                     clicevent();
@@ -454,7 +425,7 @@
                         var reboot_btn = "reboot_device";
                         $.get("/rebootbtnfunction?reboot_btn=" + reboot_btn).done(function (response) {
                             if (response == "ok") {
-                                alert("after 5 second device restarted");
+                                alert("After 5 second device restarted");
                             }
                         });
                     });
@@ -463,7 +434,7 @@
                         var reset_btn = "reset_device";
                         $.get("/resetbtnfunction?reset_btn=" + reset_btn).done(function (response) {
                             if (response == "ok") {
-                                alert("device is reset, please reboot");
+                                alert("Device is reseted");
                             }
                         });
                     });
@@ -508,7 +479,7 @@
                     else {
                         $.get("/applyService?parameters=" + param).done( function (response) {
                             if (response == "ok") {
-                                alert("please reboot device to apply changes");
+                                alert("Applied settings");
                             }
                         });
                     }
@@ -524,10 +495,10 @@
                             $("#s_pass").val(response.pass);
                             $("#pub_topic_temp").val(response.temp_tp);
                             $("#interval_temp").val(response.temp_tm);
-                            $("#u_interval_temp :selected").val(response.temp_ud)
+                            $("#u_interval_temp").val(response.temp_ud)
                             $("#pub_topic_ping").val(response.ping_tp);
                             $("#interval_ping").val(response.ping_tm);
-                            $("#u_interval_ping :selected").val(response.ping_ud)
+                            $("#u_interval_ping").val(response.ping_ud)
                             $("#sub_topic_rel1").val(response.rel1_tp);
                             $("#sub_topic_rel2").val(response.rel2_tp);
                             $("#sub_topic_en").val(response.en_tp);
@@ -560,7 +531,7 @@
                     else {
                         $.get("/applyNetwork?parameters=" + param ).done(function (response) {
                             if (response == "ok") {
-                                alert("Please reboot the device to apply changes");
+                                alert("Applied settings");
                             }
                             else if(response == "error") {
                                 alert("Incorrect IP format");
@@ -572,7 +543,7 @@
                 function setNetwork(){
                     $.get("/networkData").done( function(response){ 
                         if( response ) {
-                            $("#wifi_MODE :selected").text(response.mode);
+                            $("#wifi_MODE").val(response.mode);
                             $("#txtipadd").val(response.ip);
                             $("#net_m").val(response.nm);
                             $("#G_add").val(response.gw);
@@ -598,7 +569,7 @@
                     else {
                         $.get("/applyNtp?parameters=" + param).done( function (response) {
                             if (response == "ok") {
-                                alert("please reboot device to apply changes");
+                                alert("Applied settings");
                             }
                         });
                     }
@@ -621,7 +592,8 @@
                         "{\"x0\":"        + $("#ical0").val()        + ","
                             + "\"y0\":"   + $("#ocal0").val()        + ","
                             + "\"x1\":"   + $("#ical1").val()        + ","
-                            + "\"y1\":"   + $("#ocal1").val()        
+                            + "\"y1\":"   + $("#ocal1").val()        + ","
+                            + "\"owrite\":" + $("#defaultcal").is(":checked")
                             + "}"
                     );
 

@@ -112,6 +112,14 @@ void toggleMode( void ) {
     }
 }
 
+void factoryreset( void ) {
+    Serial.print("Config default mode...");
+    config_setdefault(  );
+    Serial.println(" Restarting...");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP.restart();
+}
+
 
 
 
@@ -121,7 +129,7 @@ static void getCalibrationEquation( struct caleq* eq, double x0, double y0, doub
     eq->m = (y1 - y0) / num;
     eq->b = y0 - eq->m * x0;
     if( verbose ) {
-        Serial.printf("Calibration equation: y = %.2f * x + %.2f\n", eq->m, eq->b);
+        Serial.printf("Calibration equation: y = %.2f * x %c%.2f\n", eq->m, eq->b > 0.0 ? '+' : ' ', eq->b);
     }
 }
 
@@ -138,11 +146,11 @@ static void tmtemp_callback( TimerHandle_t xTimer ) {
     };
     //Multisampling
     for (int i = 0; i < NO_OF_SAMPLES; i++) {
-        adc_reading += analogRead(SENS); //adc1_get_raw((adc1_channel_t)get_adc1_chanel(ADC_BAT_PIN));
+        adc_reading += analogRead(SENS); 
     }
     adc_reading /= NO_OF_SAMPLES;
     
-    int16_t raw = adc_reading;//analogRead(SENS);
+    int16_t raw = adc_reading;
     double converted = applyCalibration( &eq, raw );
     sprintf(payload, "%d, %0.1f",raw, converted + 0.05); 
     client.publish( sc->temp.topic, payload);
