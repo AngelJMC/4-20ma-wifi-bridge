@@ -1,7 +1,7 @@
 #include "uinterface.h"
 #include "Arduino.h"
 #include "FreeRTOS.h"
-
+#include "config-mng.h"
 
 
 
@@ -100,3 +100,25 @@ void interface_setState( enum modes mode ) {
     ledctrl_update( &ledState, mode );
 }
 
+
+int16_t getadcValue( void ) {
+    uint32_t adc_reading = 0;
+    enum {
+        NO_OF_SAMPLES = 64
+    };
+
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+        adc_reading += analogRead(SENS); 
+    }
+    
+    return adc_reading / NO_OF_SAMPLES;
+}
+
+
+void factoryreset( void ) {
+    Serial.print("Config default mode...");
+    config_setdefault(  );
+    Serial.println(" Restarting...");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP.restart();
+}

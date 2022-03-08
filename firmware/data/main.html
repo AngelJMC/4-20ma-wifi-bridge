@@ -326,7 +326,7 @@
                 $(document).ready(function () {
 
                     $.get("/main").done(function (response) {
-                        $("#txtmac").html(response.MAC);
+                        $("#txtmac").html(response.mac);
                         $("#txtmyip").html(response.myIP);
                         $("#wsid").html(response.wsid);
                         $("#localip").html(response.localIP);
@@ -343,7 +343,7 @@
                         var txtaplan = $("#txtaplan").val();
                         var txtssid = $("#txtssid").val();
                         var txtpass = $("#txtpass").val();
-                        $.get("/applyAP?txtaplan=" + txtaplan + "&txtssid=" + txtssid + "&txtpass=" + txtpass).done(function (response) {
+                        $.get("/applyAP?" + "txtaplan=" + txtaplan + "&txtssid=" + txtssid + "&txtpass=" + txtpass).done(function (response) {
                             if (response == "ok") {
                                 alert("Please reboot the device to apply changes");
                             }
@@ -351,18 +351,6 @@
                                 alert("Incorrect IP format");
                             }
                         });
-                    });
-
-                    $(document).on("click", "#set_pass", function () {
-                        var newpassword = $("#admin_pass").val();
-                        var confirmpassword = $("#confirm_pass1").val();
-                        if (newpassword == confirmpassword) {
-                            $.get("/adminpasswordfunction?confirmpassword=" + confirmpassword).done(function (response) {
-                            })
-                        }
-                        else {
-                            alert("Password should match");
-                        }
                     });
 
                     $(document).on("click", "#scan_wifi", function () {
@@ -569,7 +557,7 @@
                     else {
                         $.get("/applyNtp?parameters=" + param).done( function (response) {
                             if (response == "ok") {
-                                alert("Applied settings");
+                                alert("Changes applied");
                             }
                         });
                     }
@@ -600,7 +588,7 @@
 
                     $.get("/applyCalibration?parameters=" + param).done( function (response) {
                         if (response == "ok") {
-                            alert("please reboot device to apply changes");
+                            alert("Changes applied");
                         }
                     });
                 }

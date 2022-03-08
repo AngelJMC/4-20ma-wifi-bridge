@@ -79,7 +79,7 @@ static void printLocalTime(){
     Serial.println();
 }
 
-void print_APcfg( struct ap_config const* ap ) {
+static void print_APcfg( struct ap_config const* ap ) {
     String myIP = WiFi.softAPIP().toString();
     Serial.printf("Set up access point. SSID: %s, PASS: %s\n", ap->ssid, ap->pass);
     Serial.printf("#### SERVER STARTED ON THIS: %s ###\n", myIP.c_str());
@@ -87,40 +87,22 @@ void print_APcfg( struct ap_config const* ap ) {
 }
 
 
-void enterConfigMode( void ) {
-    
-
+static void enterConfigMode( void ) {
     WiFi.mode(WIFI_AP_STA);
     vTaskDelay(pdMS_TO_TICKS(1000));
     isServerActive = true;
     webserver_start( );
-    
 }
 
-void exitConfigMode( void ) {
+static void exitConfigMode( void ) {
     webserver_stop( );
     WiFi.mode(WIFI_STA);
     isServerActive = false;
 }
 
 void toggleMode( void ) {
-    if( isServerActive ) {
-        exitConfigMode( );
-    }
-    else {
-        enterConfigMode( );
-    }
+    isServerActive ? exitConfigMode( ) : enterConfigMode( );
 }
-
-void factoryreset( void ) {
-    Serial.print("Config default mode...");
-    config_setdefault(  );
-    Serial.println(" Restarting...");
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    ESP.restart();
-}
-
-
 
 
 /*Calculate the equation of a straight line used to calibrate*/
@@ -140,17 +122,7 @@ static double applyCalibration( struct caleq* eq, double x ) {
 static void tmtemp_callback( TimerHandle_t xTimer ) {
     struct service_config const* sc = &scfg;
     char payload[32];
-    uint32_t adc_reading = 0;
-    enum {
-        NO_OF_SAMPLES = 64
-    };
-    //Multisampling
-    for (int i = 0; i < NO_OF_SAMPLES; i++) {
-        adc_reading += analogRead(SENS); 
-    }
-    adc_reading /= NO_OF_SAMPLES;
-    
-    int16_t raw = adc_reading;
+    int16_t raw = getadcValue( );
     double converted = applyCalibration( &eq, raw );
     sprintf(payload, "%d, %0.1f",raw, converted + 0.05); 
     client.publish( sc->temp.topic, payload);
@@ -231,16 +203,6 @@ static bool testWifi( void ) {
 return false;
 }
 
-
-
-void updateServiceCfg( void ) {
-    xEventGroupSetBits( events,   CONNECT_MQTT );
-}
-
-void updateCalibration( void ) {
-    xEventGroupSetBits( events,   UPDATE_CAL );
-}
-
 static int getupdatePeriod( struct pub_topic const* tp ) {
     struct { char const* unit; int factor; } const units[] = {
         { "Second", 1 * 1000 },
@@ -260,7 +222,6 @@ static int getupdatePeriod( struct pub_topic const* tp ) {
 
 void mqtt_task( void * parameter ) {
 
-
     interface_setMode( OFF );
     tmTemp = xTimerCreate( "temperature", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmtemp_callback );
     tmPing = xTimerCreate( "ping", pdMS_TO_TICKS( 10000 ), pdTRUE, NULL, tmping_callback );
@@ -271,9 +232,7 @@ void mqtt_task( void * parameter ) {
     events = xEventGroupCreate();
     EventBits_t bitfied = xEventGroupSetBits( events, START_AP_WIFI | CONNECT_WIFI );
 
-    
-    
-    for(;;){ // infinite loop
+    for(;;){ 
         
         bitfied = xEventGroupGetBits( events );
 
@@ -342,7 +301,7 @@ void mqtt_task( void * parameter ) {
             if( scfg.host_ip[0] == 0 || scfg.client_id == 0 ) {
                 Serial.println("No mqtt config found");
                 vTaskDelay( pdMS_TO_TICKS(10000) );
-                xEventGroupClearBits( events, CONNECT_MQTT );
+                xEventGroupSetBits( events, CONNECT_MQTT );
                 continue;
             }
             
@@ -385,6 +344,14 @@ void mqtt_task( void * parameter ) {
             xEventGroupSetBits( events, CONNECT_WIFI );
             enterConfigMode( );
             continue;
+        }
+
+        if ( webserver_isCalibrationUpdated( ) ) {
+            xEventGroupSetBits( events, UPDATE_CAL );
+        }
+
+        if ( webserver_isServiceUpdated( ) ) {
+            xEventGroupSetBits( events, CONNECT_MQTT );
         }
         
         client.loop();
