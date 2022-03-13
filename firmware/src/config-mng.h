@@ -2,12 +2,7 @@
 #ifndef _CONFIG_MNG_H_
 #define _CONFIG_MNG_H_                   
 
-#ifdef __cplusplus
-
-
-#include "Arduino.h"
 #include <stdint.h>
-#include <stdbool.h>
 
 enum {
     SSID_SIZE = 32,
@@ -114,8 +109,6 @@ void print_ServiceCfg( struct service_config const* srvc );
 
 void print_Calibration( struct acq_cal const* cal );
 
-
-#endif
 
 #endif 
  
