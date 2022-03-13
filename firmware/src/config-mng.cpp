@@ -16,14 +16,14 @@ static int const caladdr = 900;
 void static strgetname( char * name, char const* prefix ) {
     uint8_t baseMac[6];
     esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-    sprintf(name, "%s_%02X%02X%02X", prefix, baseMac[2], baseMac[1], baseMac[0]);
+    sprintf(name, "%s_%02X%02X", prefix, baseMac[4], baseMac[5]);
 }
 
 
 static void setdefault( struct config* cfg ) { 
     memset( cfg, 0 , sizeof( struct config));
     
-    strgetname( cfg->ap.ssid, "WifiBridge" );
+    strgetname( cfg->ap.ssid, "Logger_4-20mA" );
     strcpy( cfg->ap.pass, "Kmf5cyJUWw" );
     
     struct ip addr = { 192,168,4,1 };
