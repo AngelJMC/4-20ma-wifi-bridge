@@ -4,46 +4,34 @@
 #include "stdbool.h"
 
 /**
- * @brief 
- * 
- * @param mode 
- */
+ * @brief Freertos task to handle the web server
+ * @param parameter */
 void webserver_task( void * parameter );
 
 /**
- * @brief 
- * 
- * @param mode 
- */
+ * @brief Start the web server. */
 void webserver_start( void );
 
 /**
- * @brief 
- * 
- */
+ * @brief Stop the web server. */
 void webserver_stop( void );
 
 /**
- * @brief 
- * 
- * @param mode 
- */
-void webserver_toggleState( void );
-
-/**
- * @brief 
- * 
- * @return true 
- * @return false 
- */
+ * @brief Check if service configuration data has been updated from webserver.
+ * It's clean the status flag if it has been updated. 
+ * @return true configuration data has been updated, false otherwise. */
 bool webserver_isServiceUpdated( void );
 
 /**
- * @brief 
- * 
- * @return true 
- * @return false 
- */
+ * @brief Check if calibration  data has been updated from webserver.
+ * It's clean the status flag if it has been updated.
+ * @return true calibration data has been updated, false otherwise. */
 bool webserver_isCalibrationUpdated( void );
+
+/**
+ * @brief Check if network configuration has been updated from webserver.
+ * It's clean the status flag if it has been updated.
+ * @return true network configuration has been updated, false otherwise. */
+bool webserver_isNetworkUpdated( void );
 
 #endif //__LIGHT_CTRL__

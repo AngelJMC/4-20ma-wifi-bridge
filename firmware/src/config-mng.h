@@ -4,8 +4,6 @@
 
 #ifdef __cplusplus
 
-//extern "C"{
-//#endif
 
 #include "Arduino.h"
 #include <stdint.h>
@@ -92,8 +90,8 @@ struct config  {
     struct acq_cal cal;
 };
 
-
 extern struct config cfg;
+
 
 void config_load( void ); 
 
@@ -102,6 +100,7 @@ void config_savecfg( );
 void config_overwritedefaultcal( struct acq_cal const* calibration );
 
 void config_setdefault( void );
+
 
 void print_ntpCfg( struct ntp_config const* ntp );
 
@@ -115,8 +114,7 @@ void print_ServiceCfg( struct service_config const* srvc );
 
 void print_Calibration( struct acq_cal const* cal );
 
-//#ifdef __cplusplus
-//} // extern "C"
+
 #endif
 
 #endif 

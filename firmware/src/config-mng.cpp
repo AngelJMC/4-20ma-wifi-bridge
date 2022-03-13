@@ -23,7 +23,6 @@ void static strgetname( char * name, char const* prefix ) {
 static void setdefault( struct config* cfg ) { 
     memset( cfg, 0 , sizeof( struct config));
     
-    //strcpy( cfg->ap.ssid, "WifiBridge" );
     strgetname( cfg->ap.ssid, "WifiBridge" );
     strcpy( cfg->ap.pass, "Kmf5cyJUWw" );
     

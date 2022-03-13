@@ -20,7 +20,8 @@ enum {
     SAVE_CFG              = 1u << 3,
     UPDATE_SERVICE        = 1u << 4,
     UPDATE_CALIBRATION    = 1u << 5,
-    OVERWRITE_CALIBRATION = 1u << 6
+    UPDATE_NETWORK        = 1u << 6,
+    OVERWRITE_CALIBRATION = 1u << 7
 };
 
 static EventGroupHandle_t eventGroup;
@@ -65,6 +66,14 @@ static void ipToString(String* dest, struct ip src) {
     *dest = buf;
 }
 
+bool webserver_isNetworkUpdated( void ) {
+    EventBits_t bits = xEventGroupGetBits( eventGroup );
+    if ( bits & UPDATE_NETWORK ) {
+        xEventGroupClearBits( eventGroup, UPDATE_NETWORK );
+        return 1;
+    }
+    return 0;
+}
 
 bool webserver_isServiceUpdated( void ) {
     EventBits_t bits = xEventGroupGetBits( eventGroup );
@@ -92,9 +101,6 @@ void webserver_stop( void ) {
     xEventGroupSetBits( eventGroup, STOP_SERVER );
 }
 
-void webserver_toggleState( void ) {
-    xEventGroupSetBits( eventGroup, isServerActive ? STOP_SERVER : START_SERVER );
-}
 
 void webserver_task( void * parameter ) {
 
@@ -378,7 +384,7 @@ void webserver_task( void * parameter ) {
         
         if( 0 == err ) { 
             request->send(200, "text/plain", "ok");
-            xEventGroupSetBits( eventGroup, SAVE_CFG );
+            xEventGroupSetBits( eventGroup, SAVE_CFG | UPDATE_NETWORK);
         }
         else {
             request->send(200, "text/plain", "error");
@@ -534,13 +540,13 @@ void webserver_task( void * parameter ) {
         } 
         
         if( ctrlflags & SAVE_CFG ) {
-            xEventGroupClearBits( eventGroup, SAVE_CFG );
             config_savecfg( );
+            xEventGroupClearBits( eventGroup, SAVE_CFG );
         } 
 
         if( ctrlflags & OVERWRITE_CALIBRATION ) {
-            xEventGroupClearBits( eventGroup, OVERWRITE_CALIBRATION );
             config_overwritedefaultcal( &cfg.cal );
+            xEventGroupClearBits( eventGroup, OVERWRITE_CALIBRATION );
         }       
     }
 }

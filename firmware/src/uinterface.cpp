@@ -25,9 +25,11 @@ enum ledstates{
     STATION_MODE = 1
 };
 
-
-
-
+/**
+ * @brief Initialize a led control structure
+ * @param self, the led control structure
+ * @param gpio, gpio identifier when led is connected.
+ * @param tmhdl, timer handler to control led bliking. */
 static void ledctrl_init( struct ledctrl * self, uint8_t gpio, TimerHandle_t tmhdl ) {
     self->gpio = gpio;
     self->mode = OFF;
@@ -36,6 +38,10 @@ static void ledctrl_init( struct ledctrl * self, uint8_t gpio, TimerHandle_t tmh
     digitalWrite(self->gpio, self->state);
 }
 
+/**
+ * @brief Update the led state
+ * @param self, the led control structure
+ * @param mode, Setting value of led: OFF, BLINK, ON.*/
 static void ledctrl_update( struct ledctrl * self, enum modes mode ) {
     
     if( self->mode == mode ) {
@@ -62,21 +68,23 @@ static void ledctrl_update( struct ledctrl * self, enum modes mode ) {
         default:
             break;
     }
-
-
 }
 
-
+/**
+ * @brief Callback function used to update the the MODE LED when timer expires.
+ * @param xTimer, freertos timer handler */
 static void tmledmode_callback( TimerHandle_t xTimer ) {
     ledMode.state = ledMode.state == LOW ? HIGH : LOW;
     digitalWrite(ledMode.gpio, ledMode.state);
 }
 
+/**
+ * @brief Callback function used to update the STATE LED when timer expires.
+ * @param xTimer, freertos timer handler*/
 static void tmledstate_callback( TimerHandle_t xTimer ) {
     ledState.state = ledState.state == LOW ? HIGH : LOW;
     digitalWrite(ledState.gpio, ledState.state);
 }
-
 
 
 void interface_init( void ) {
@@ -86,10 +94,6 @@ void interface_init( void ) {
 
     tmledMode = xTimerCreate( "ledMode",   pdMS_TO_TICKS( 250 ), pdTRUE, NULL, tmledmode_callback );
     ledctrl_init( &ledMode, LED1, tmledMode );
-
-
-
-
 }
 
 void interface_setMode( enum modes mode ) {

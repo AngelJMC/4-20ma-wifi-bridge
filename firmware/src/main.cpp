@@ -14,8 +14,6 @@ static TimerHandle_t tmswitch;
 static int timerstate = 0;
 
 
-
-
 static void switch_callback( TimerHandle_t xTimer ) {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     if (timerstate == 0) {
@@ -24,10 +22,10 @@ static void switch_callback( TimerHandle_t xTimer ) {
                 /* The stop command was not executed successfully.  Take appropriate
                 action here. */
             }
-            //webserver_toggleState( );
-            toggleMode( );
-        } else {
-            
+            /*Toggle configuration mode*/
+            ctrl_isConfigModeEnable() ? ctrl_exitConfigMode( ) : ctrl_enterConfigMode( );
+        } 
+        else {
             if( xTimerChangePeriodFromISR( tmswitch,
                                         pdMS_TO_TICKS( 4000 ),
                                         &xHigherPriorityTaskWoken ) != pdPASS ){
@@ -36,7 +34,8 @@ static void switch_callback( TimerHandle_t xTimer ) {
             } 
             timerstate = 1;
         }
-    } else {
+    } 
+    else {
         if( xTimerStopFromISR( tmswitch, &xHigherPriorityTaskWoken ) != pdPASS ) {
             /* The stop command was not executed successfully.  Take appropriate
             action here. */
@@ -96,7 +95,7 @@ void setup() {
     interface_init( );
     // Now set up two Tasks to run independently.
     xTaskCreate( webserver_task , "webserver-task",  1024*10  ,NULL  ,  3,  NULL );
-    xTaskCreate( mqtt_task ,      "mqtt-task",       1024*3   ,NULL  ,  1,  NULL );
+    xTaskCreate( ctrl_task ,      "ctrl-task",       1024*3   ,NULL  ,  1,  NULL );
 
 }
 
