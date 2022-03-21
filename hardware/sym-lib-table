@@ -1,0 +1,5 @@
+(sym_lib_table
+  (lib (name "buck-dc")(type "KiCad")(uri "${KIPRJMOD}/lib/buck-converter/library/buck-dc.kicad_sym")(options "")(descr ""))
+  (lib (name "ESP32-DEVKITC-32D")(type "KiCad")(uri "${KIPRJMOD}/lib/symbols/ESP32-DEVKITC-32D.kicad_sym")(options "")(descr ""))
+  (lib (name "ESP32-DEVKITC-32U")(type "KiCad")(uri "${KIPRJMOD}/lib/symbols/ESP32-DEVKITC-32U.kicad_sym")(options "")(descr ""))
+)
