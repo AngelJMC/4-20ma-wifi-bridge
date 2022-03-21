@@ -1,9 +1,14 @@
+/*
+    Project: <https://github.com/AngelJMC/4-20ma-wifi-bridge>   
+    Copyright (c) 2022 Angel Maldonado <angelgesus@gmail.com>. 
+    Licensed under the MIT License: <http://opensource.org/licenses/MIT>.
+    SPDX-License-Identifier: MIT 
+*/
+
 #include "uinterface.h"
 #include "Arduino.h"
 #include "FreeRTOS.h"
 #include "config-mng.h"
-
-
 
 /*Create a static freertos timer*/
 static TimerHandle_t tmledMode;

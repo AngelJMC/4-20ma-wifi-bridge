@@ -1,3 +1,10 @@
+/*
+    Project: <https://github.com/AngelJMC/4-20ma-wifi-bridge>   
+    Copyright (c) 2022 Angel Maldonado <angelgesus@gmail.com>. 
+    Licensed under the MIT License: <http://opensource.org/licenses/MIT>.
+    SPDX-License-Identifier: MIT 
+*/
+
 #ifndef __WEB_SERVER__
 #define __WEB_SERVER__
 
