@@ -10,6 +10,22 @@
  * 2 Relays to control loads up to 1A at 24DVC or 0.5A at 125VAC.
  * WIFI 802.11 b/g/n (2.4 GHz), up to 150 Mbps.
 
+
+## Get the source code
+Download repository and update submodules:
+
+```
+$ git clone https://github.com/AngelJMC/4-20ma-wifi-bridge.git
+```
+
+
+### Directory Structure
+
+    .
+    ├── docs          # Documentation files
+    ├── firmware      # FW source code (Visual Studio Code)
+    ├── hardware      # HW design files (Kicad)
+
 ## Firmware
 
 If you want to modify the source code or program your devices, it is highly recommended to use Visual Studio Code and the Platformio plugin. Just open the "firmware" directory with Visual Studio Code and the whole project will be ready for use.
@@ -35,10 +51,8 @@ If you want to modify the source code or program your devices, it is highly reco
 
 ## Configuration Web
 
-<img src="docs/web_status.png" alt="sdw" style="width: 200px" />
-<img src="docs/web_other.png" alt="sdw" style="width: 200px" />
-<img src="docs/web_network.png" alt="sdw" style="width: 200px" />
-<img src="docs/web_service.png" alt="sdw" style="width: 200px" />
+<img src="docs/web_status.png" alt="sdw" style="width: 200px" /><img src="docs/web_other.png" alt="sdw" style="width: 200px" />
+<img src="docs/web_network.png" alt="sdw" style="width: 200px" /><img src="docs/web_service.png" alt="sdw" style="width: 200px" />
 
 
 
