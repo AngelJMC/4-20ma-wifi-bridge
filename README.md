@@ -35,7 +35,7 @@ If you want to modify the source code or program your devices, it is highly reco
  1. Build and Upload Filesystem Image.
  2. Build and Upload program code.
 
-<img src="docs/vs-instructions.png" alt="sdw" style="height: 200px" />
+<img src="docs/vs-instructions.png"  />
 
 ## Configuration Process
 
