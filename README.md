@@ -51,8 +51,7 @@ If you want to modify the source code or program your devices, it is highly reco
 
 ## Configuration Web
 
-<img src="docs/web_status.png" /><img src="docs/web_other.png" />
-<img src="docs/web_network.png" /><img src="docs/web_service.png"  />
+<img src="docs/web_status.png" /><img src="docs/web_other.png" /><img src="docs/web_network.png" /><img src="docs/web_service.png"  />
 
 
 
