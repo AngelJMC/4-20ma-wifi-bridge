@@ -18,7 +18,8 @@
 #include "uinterface.h"
 
 enum {
-    verbose = 1
+    verbose = 1,
+    apAutoStart = 0 
 };
 
 /*Calibration equation*/
@@ -274,8 +275,10 @@ void ctrl_task( void * parameter ) {
 
             if( verbose )
                 print_APcfg( ap );
-            
-            ctrl_enterConfigMode( );
+
+            if( apAutoStart )
+                ctrl_enterConfigMode( );
+
             xEventGroupClearBits( events, START_AP_WIFI );
         }
 
@@ -364,7 +367,7 @@ void ctrl_task( void * parameter ) {
                 continue;
             }
             
-            if( !updateserv ) {
+            if( !updateserv && apAutoStart ) {
                 ctrl_exitConfigMode(  );
             }
 
@@ -379,7 +382,8 @@ void ctrl_task( void * parameter ) {
             if ( !testWifi() ) {
                 Serial.println("\nWifi connection failed");
                 xEventGroupSetBits( events, CONNECT_WIFI );
-                ctrl_enterConfigMode( );
+                if( apAutoStart )
+                    ctrl_enterConfigMode( );
                 continue;
             }
         }
