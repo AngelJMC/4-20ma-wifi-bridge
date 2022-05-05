@@ -384,8 +384,17 @@ void ctrl_task( void * parameter ) {
                 xEventGroupSetBits( events, CONNECT_WIFI );
                 if( apAutoStart )
                     ctrl_enterConfigMode( );
+                interface_setMode( OFF );
                 continue;
             }
+        }
+
+        if( !client.connected() ) {
+            Serial.println("\nMQTT connection failed\n");
+            xEventGroupSetBits( events, CONNECT_MQTT );
+            if( apAutoStart )
+                ctrl_enterConfigMode( );
+            interface_setMode( BLINK );
         }
         
         client.loop();
