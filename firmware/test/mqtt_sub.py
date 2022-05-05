@@ -30,9 +30,10 @@ def connect_mqtt() -> mqtt_client:
 def subscribe(client: mqtt_client):
     def on_message(client, userdata, msg):
         text = msg.payload.decode()
-        val = float(text.split(",")[1])
-        temp = (val )*100/20
-        print(f"Received  '{msg.payload.decode()}' --- `{temp}` from `{msg.topic}` topic")
+        print(text)
+        #val = float(text.split(",")[1])
+        #temp = (val )*100/20
+        #print(f"Received  '{msg.payload.decode()}' --- `{temp}` from `{msg.topic}` topic")
 
     client.subscribe(topic)
     client.on_message = on_message

@@ -19,7 +19,7 @@
 
 enum {
     verbose = 1,
-    apAutoStart = 0 
+    apAutoStart = 0
 };
 
 /*Calibration equation*/
@@ -40,6 +40,14 @@ static bool isServerActive = false;
 static EventGroupHandle_t events;
 static struct service_config scfg;
 static struct caleq eq = { .m = 1.0, .b = 0.0 };
+
+static struct ctrl_status {
+    int relay1 = LOW;
+    int relay2 = LOW;
+    int enableTemp = false;
+} ctrlStatus;
+
+char jsonstatus[128];
 
 enum flags {
     START_AP_WIFI = 1 << 0,
@@ -109,31 +117,42 @@ static double applyCalibration( struct caleq* eq, double x ) {
     return eq->m * (x-5) + eq->b ;
 } 
 
+/*Format json string with status info.*/
+static void status2json( char* json ) {
+    int16_t raw = getadcValue( );
+    double converted = applyCalibration( &eq, raw );
+    time_t now;
+    time(&now);
+    sprintf(json,
+    "{ \"%s\": %ld, \"%s\": %d, \"%s\": %0.1f, \"%s\": \"%s\", \"%s\": \"%s\", \"%s\": \"%s\" }",
+         "timestamp", now,  
+         "raw", raw,
+         "temperatura", converted + 0.05, 
+         "rele1", ctrlStatus.relay1 ? "ON" : "OFF", 
+         "rele2", ctrlStatus.relay2 ? "ON" : "OFF",
+         "transmitir", ctrlStatus.enableTemp ? "ON" : "OFF"  );
+}
+
 /*Callback function used to pusblish temperature on the mqtt topic*/
 static void tmtemp_callback( TimerHandle_t xTimer ) {
     struct service_config const* sc = &scfg;
-    char payload[32];
-    int16_t raw = getadcValue( );
-    double converted = applyCalibration( &eq, raw );
-    sprintf(payload, "%d, %0.1f",raw, converted + 0.05); 
-    client.publish( sc->temp.topic, payload);
-    Serial.printf("Publishing temperature %s\n", payload);          
+    status2json( jsonstatus );
+    client.publish( sc->temp.topic, jsonstatus);
+    Serial.printf("Publishing temperature %s\n", jsonstatus);          
 }
 
 /*Callback function used to pusblish timestamp on the mqtt topic*/
 static void tmping_callback( TimerHandle_t xTimer ) {
     struct service_config const* sc = &scfg;
-    char payload[32];
-    time_t now;
-    time(&now);
-    sprintf(payload, "%ld", now); 
-    client.publish( sc->ping.topic, payload );
-    Serial.printf("Publishing timestamp %s\n", payload);
+    status2json( jsonstatus );
+    client.publish( sc->ping.topic, jsonstatus );
+    Serial.printf("Publishing timestamp %s\n", jsonstatus);
     
     if( verbose ) {
         printLocalTime();
     }
 }
+
 
 /*Funtion to convert byte* to char* */
 static void byteToChar(char* dest, byte* src, int len) {
@@ -153,32 +172,49 @@ static void subs_callback(char* topic, byte *payload, unsigned int length) {
     
     struct service_config const* sc = &scfg;
     if( strcmp(sc->relay1.topic , topic) == 0 ) { 
-        if ( strcmp( value, "ON") == 0 )
-            digitalWrite(RELAY1, HIGH);
-        else if ( strcmp( value, "OFF") == 0 )
-            digitalWrite(RELAY1, LOW);
+        if ( strcmp( value, "ON") == 0 ){
+            ctrlStatus.relay1 = HIGH;
+            digitalWrite(RELAY1, ctrlStatus.relay1);
+        }
+        else if ( strcmp( value, "OFF") == 0 ) {
+            ctrlStatus.relay1 = LOW;
+            digitalWrite(RELAY1, ctrlStatus.relay1);
+        }
         else
             Serial.printf("Invalid value for topic %s: %s\n", topic, value);
     }
     else if( strcmp(sc->relay2.topic, topic) == 0 ) {
-        if ( strcmp( value, "ON") == 0 )
-            digitalWrite(RELAY2, HIGH);
-        else if ( strcmp( value, "OFF") == 0 )
-            digitalWrite(RELAY2, LOW);
+        if ( strcmp( value, "ON") == 0 ) {
+            ctrlStatus.relay2 = HIGH;
+            digitalWrite(RELAY2, ctrlStatus.relay2);
+        }
+        else if ( strcmp( value, "OFF") == 0 ) {
+            ctrlStatus.relay2 = LOW;
+            digitalWrite(RELAY2, ctrlStatus.relay2);
+        }
         else
             Serial.printf("Invalid value for topic %s: %s\n", topic, value);
     }
     else if( strcmp(sc->enableTemp.topic, topic) == 0 ) {
-        if ( strcmp( value, "ON") == 0 )
+        if ( strcmp( value, "ON") == 0 ) {
             xTimerStart(tmTemp, 100 );
-        else if ( strcmp( value, "OFF") == 0 )
+            ctrlStatus.enableTemp = true;
+        }
+        else if ( strcmp( value, "OFF") == 0 ) {
             xTimerStop(tmTemp, 100 );
+            ctrlStatus.enableTemp = false;
+        }
         else
             Serial.printf("Invalid value for topic %s: %s\n", topic, value);
     }
     else{
         Serial.printf("Unknown topic: %s\n", topic );
+        return;
     }
+
+    /*Publish the new status*/
+    status2json( jsonstatus );
+    client.publish( sc->ping.topic, jsonstatus );
 }
 
 /*Test the status of the Wifi connection and attempt reconnection if it fails.*/
