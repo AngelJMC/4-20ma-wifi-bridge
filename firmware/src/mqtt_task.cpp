@@ -260,7 +260,7 @@ static int getupdatePeriod( struct pub_topic const* tp ) {
 
 /*Enter in the configuration mode: enable wifi access point and webserver.*/
 void ctrl_enterConfigMode( void ) {
-    if( isServerActive ) 
+    if( isServerActive )
         return;
     WiFi.mode(WIFI_AP_STA);
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -314,6 +314,8 @@ void ctrl_task( void * parameter ) {
 
             if( apAutoStart )
                 ctrl_enterConfigMode( );
+            else
+                WiFi.mode(WIFI_STA);
 
             xEventGroupClearBits( events, START_AP_WIFI );
         }
@@ -403,7 +405,7 @@ void ctrl_task( void * parameter ) {
                 continue;
             }
             
-            if( !updateserv && apAutoStart ) {
+            if( !updateserv ) {
                 ctrl_exitConfigMode(  );
             }
 
@@ -428,8 +430,6 @@ void ctrl_task( void * parameter ) {
         if( !client.connected() ) {
             Serial.println("\nMQTT connection failed\n");
             xEventGroupSetBits( events, CONNECT_MQTT );
-            if( apAutoStart )
-                ctrl_enterConfigMode( );
             interface_setMode( BLINK );
         }
         

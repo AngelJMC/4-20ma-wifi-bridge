@@ -110,7 +110,7 @@ void webserver_stop( void ) {
 void webserver_task( void * parameter ) {
 
     eventGroup = xEventGroupCreate();
-    interface_setState( OFF );
+    interface_setState( ON );
     if( eventGroup == NULL ){
         Serial.println("Event group not created");
     }
