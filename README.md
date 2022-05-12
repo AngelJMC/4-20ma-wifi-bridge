@@ -1,5 +1,5 @@
 # 4-20ma-wifi-bridge
-IoT device to enable 4-20mA sensor communication with cloud services. Powered by an ESP32, it allows a wireless connection via WIFI, the communication with the server is done through the MQTT protocol. The device has a user-friendly web configuration interface, which allows to manage the wifi connection, the connection with the MQTT broker as well as the calibration of the 4-20mA acquisition system. 
+IoT device to provide communication between 4-20mA sensors and cloud services. Powered by an ESP32, it allows a wireless connection via WIFI, the communication with the server is done through the MQTT protocol. The device has a user-friendly web configuration interface, which allows to manage the wifi connection, the connection with the MQTT broker as well as the calibration of the 4-20mA acquisition system. 
 
 <img src="docs/pcb-render.png" alt="pcb render" style="height: 200px" />
 
@@ -51,7 +51,7 @@ If you want to modify the source code or program your devices, it is highly reco
 
 ## Configuration Web
 
-<img src="docs/web_status.png" /><img src="docs/web_other.png" /><img src="docs/web_network.png" /><img src="docs/web_service.png"  />
+<img src="docs/web_status.png" /><img src="docs/web_network.png" /><img src="docs/web_service.png"  /><img src="docs/web_other.png" />
 
 
 
